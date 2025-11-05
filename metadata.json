@@ -1,0 +1,5 @@
+{
+  "name": "Infi Project Performance Tracker",
+  "description": "An elegant performance tracker for team members at Infi Project, featuring a calendar-based interface for tracking time and goals, and manager dashboards.",
+  "requestFramePermissions": []
+}

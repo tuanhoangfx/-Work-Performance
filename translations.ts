@@ -1,0 +1,441 @@
+import { Translation } from "./types";
+
+const en: Translation = {
+  // Header
+  facebookAria: "Facebook Profile",
+  phoneAria: "Telephone/Zalo",
+  telegramAria: "Telegram Profile",
+  backToTopAria: "Back to top",
+  scrollToTopAria: "Scroll to top",
+  settingsAria: "Open settings",
+  openUserGuideAria: "Open User Guide",
+  howToUseThisApp: "How to Use This App",
+  adminDashboard: "Manager Dashboard",
+  employeeDashboard: "My Tasks",
+  activityLog: "Activity Log",
+
+  // ThemeToggle & Controller
+  toggleThemeAria: "Toggle theme",
+  appearanceSettingsAria: "Appearance",
+  themeLabel: "Theme",
+  lightTheme: "Light",
+  darkTheme: "Dark",
+  accentColorLabel: "Accent Color",
+
+  // LanguageSwitcher
+  language: "Language",
+
+  // Footer
+  copyright: (year) => `© ${year} Infi Project. All rights reserved.`,
+  contactUs: "Contact Us",
+
+  // TopBar
+  liveActivity: "Activity",
+  totalTasks: "Total Tasks",
+  myTasks: "My Tasks",
+  tasksTodo: "To Do",
+  tasksInProgress: "In Progress",
+  tasksDone: "Done",
+  // FIX: Add missing translations for SessionInfo.
+  ipAddress: "IP Address",
+  sessionTime: "Session Time",
+
+  // Auth
+  authHeader: "Welcome to Infi Project",
+  authPrompt: "Sign in to manage your tasks.",
+  authPromptLogin: "Don't have an account?",
+  emailLabel: "Email address",
+  passwordLabel: "Password",
+  signIn: "Sign In",
+  signUp: "Sign Up",
+  signOut: "Sign Out",
+  signingIn: "Signing In...",
+  signingUp: "Signing Up...",
+  magicLinkSent: "Check your email for the login link!",
+  signInToContinue: "Sign in to continue",
+  cancel: "Cancel",
+
+  // Account Modal
+  accountSettings: "Account Settings",
+  profile: "Profile",
+  password: "Password",
+  updateProfile: "Update Profile",
+  fullName: "Full Name",
+  avatar: "Avatar",
+  uploading: "Uploading...",
+  uploadAvatar: "Upload Avatar",
+  update: "Update",
+  updating: "Updating...",
+  profileUpdated: "Profile updated successfully!",
+  changePassword: "Change Password",
+  newPassword: "New Password",
+  confirmNewPassword: "Confirm New Password",
+  passwordUpdated: "Password updated successfully!",
+  passwordsDoNotMatch: "Passwords do not match.",
+
+  // Task Dashboard
+  dashboardTitle: "Task Board",
+  myTasksTitle: "My Tasks",
+  allTasksTitle: "All Tasks",
+  signInToManageTasks: "Please sign in to manage your tasks.",
+  noTasksFound: "No tasks found. Add one to get started!",
+  addNewTask: "Add New Task",
+  editTask: "Edit Task",
+  deleteTask: "Delete Task",
+  confirmDeleteTask: "Confirm Deletion",
+  deleteTaskConfirmationMessage: (taskTitle: string) => `Are you sure you want to delete the task "${taskTitle}"? This action cannot be undone.`,
+  boardView: "Board View",
+  calendarView: "Calendar View",
+  summaryView: "Summary View",
+
+  // Task Status
+  status: "Status",
+  todo: "To Do",
+  inprogress: "In Progress",
+  done: "Done",
+  cancelled: "Cancelled",
+  overdue: "Overdue",
+
+  // Task Priority
+  priority: "Priority",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+
+  // Task Card
+  creationTime: "Created at",
+  assignee: "Assignee",
+  createdBy: "Created by",
+  totalTimeLogged: "Total time logged",
+  startTimer: "Start Timer",
+  stopTimer: "Stop Timer",
+  timerRunningOnAnotherTask: "Timer is running on another task",
+  cancelTask: "Cancel Task",
+
+  // Task Modal
+  taskTitleLabel: "Task Title",
+  descriptionLabel: "Description (optional)",
+  dueDateLabel: "Due Date (optional)",
+  attachments: "Attachments",
+  addAttachment: "Add Attachment",
+  pasteOrDrop: "Drop files here or paste from clipboard",
+  comments: "Comments",
+  addComment: "Add a comment...",
+  post: "Post",
+  posting: "Posting...",
+  noCommentsYet: "No comments yet.",
+
+  // Admin Dashboard
+  allEmployees: "All Employees",
+  selectEmployeePrompt: "Select an employee to view their tasks.",
+  tasksFor: (name: string) => `Tasks for ${name}`,
+  addTaskFor: (name: string) => `Add Task for ${name}`,
+  overallSummary: "Overall Summary",
+  performanceSummary: "Performance Summary",
+  tasksByStatus: "Tasks by Status",
+  tasksByPriority: "Tasks by Priority",
+  today: "Today",
+  thisWeek: "This Week",
+  thisMonth: "This Month",
+  last7Days: "Last 7 Days",
+  last30Days: "Last 30 Days",
+  avgCompletionTime: "Avg. Completion Time",
+  allTasksBoard: "All Tasks Board",
+  customMonth: "By Month",
+  customRange: "Date Range",
+
+  // Generic Actions
+  close: "Close",
+  save: "Save",
+  
+  // Admin Modals
+  employee: "Employee",
+  selectEmployee: "Select an Employee",
+  editEmployeeProfile: "Edit Employee Profile",
+  role: "Position",
+  admin: "Manager",
+  // FIX: Add missing translations for modals.
+  addNewTimeEntry: "Add New Time Entry",
+  date: "Date",
+  startTime: "Start Time",
+  endTime: "End Time (optional)",
+  editPerformanceReview: "Edit Performance Review",
+  score: "Score",
+  // comments: "Comments", // Already exists
+
+  // Activity Log
+  noActivity: "No recent activity found.",
+  log_created_task: (user, task) => `${user} created task ${task}.`,
+  log_updated_task: (user, task) => `${user} updated task ${task}.`,
+  log_deleted_task: (user, task) => `${user} deleted task ${task}.`,
+  log_status_changed: (user, task, from, to) => `${user} changed status of ${task} from ${from} to ${to}.`,
+  log_added_attachments: (user, count, task) => `${user} added ${count} attachment(s) to ${task}.`,
+  log_removed_attachments: (user, count, task) => `${user} removed ${count} attachment(s) from ${task}.`,
+  a_user: "A user",
+  a_task: "a task",
+
+  // Settings
+  defaultDueDateIn: "Default due date in",
+  days: "days",
+
+  // User Guide
+  userGuide_s1_title: "Getting Started",
+  userGuide_s1_l1_strong: "Sign In:",
+  userGuide_s1_l1_text: "Log in to access your personal task board.",
+  userGuide_s1_l2_strong: "Dashboard Overview:",
+  userGuide_s1_l2_text: "The main dashboard displays your tasks organized by status: To Do, In Progress, and Done.",
+
+  userGuide_s2_title: "Managing Your Tasks",
+  userGuide_s2_l1_strong: "Add a Task:",
+  userGuide_s2_l1_text: "Click the 'Add New Task' button to create a new task. You can set a title, description, priority, and due date.",
+  userGuide_s2_l2_strong: "Update a Task:",
+  userGuide_s2_l2_text: "Click on any task card to open the editor. You can change its status by moving it to another column or edit its details.",
+  userGuide_s2_l3_strong: "Priorities & Status:",
+  userGuide_s2_l3_text: "Use priorities (Low, Medium, High) to organize your work. The status columns help you track progress from start to finish.",
+
+  userGuide_s3_title: "Manager Dashboard",
+  userGuide_s3_l1_strong: "Switch to Manager View:",
+  userGuide_s3_l1_text: "If you are a manager, use the toggle in the header to switch to the 'Manager Dashboard'.",
+  userGuide_s3_l2_strong: "View Employee Tasks:",
+  userGuide_s3_l2_text: "Select an employee from the list to view and manage their tasks. You can also view an overall summary of all tasks in the system.",
+
+  userGuide_s4_title: "Account & Settings",
+  userGuide_s4_l1_strong: "Account Settings:",
+  userGuide_s4_l1_text: "Click your name to update your profile information, such as your full name and avatar.",
+  userGuide_s4_l2_strong: "Appearance:",
+  userGuide_s4_l2_text: "Use the settings icon to switch between light/dark themes and change the application's language.",
+};
+
+const vi: Translation = {
+  // Header
+  facebookAria: "Hồ sơ Facebook",
+  phoneAria: "Điện thoại/Zalo",
+  telegramAria: "Hồ sơ Telegram",
+  backToTopAria: "Quay về đầu trang",
+  scrollToTopAria: "Cuộn lên đầu trang",
+  settingsAria: "Mở cài đặt",
+  openUserGuideAria: "Mở Hướng dẫn sử dụng",
+  howToUseThisApp: "Hướng dẫn sử dụng ứng dụng",
+  adminDashboard: "Trang Quản lý",
+  employeeDashboard: "Việc của tôi",
+  activityLog: "Nhật ký hoạt động",
+
+  // ThemeToggle & Controller
+  toggleThemeAria: "Chuyển đổi giao diện",
+  appearanceSettingsAria: "Giao diện",
+  themeLabel: "Giao diện",
+  lightTheme: "Sáng",
+  darkTheme: "Tối",
+  accentColorLabel: "Màu nhấn",
+
+  // LanguageSwitcher
+  language: "Ngôn ngữ",
+
+  // Footer
+  copyright: (year) => `© ${year} Infi Project. Đã đăng ký bản quyền.`,
+  contactUs: "Liên hệ",
+
+  // TopBar
+  liveActivity: "Hoạt động",
+  totalTasks: "Tổng số công việc",
+  myTasks: "Việc của tôi",
+  tasksTodo: "Cần làm",
+  tasksInProgress: "Đang làm",
+  tasksDone: "Hoàn thành",
+  // FIX: Add missing translations for SessionInfo.
+  ipAddress: "Địa chỉ IP",
+  sessionTime: "Thời gian phiên",
+  
+  // Auth
+  authHeader: "Chào mừng đến với Infi Project",
+  authPrompt: "Đăng nhập để quản lý công việc của bạn.",
+  authPromptLogin: "Chưa có tài khoản?",
+  emailLabel: "Địa chỉ email",
+  passwordLabel: "Mật khẩu",
+  signIn: "Đăng nhập",
+  signUp: "Đăng ký",
+  signOut: "Đăng xuất",
+  signingIn: "Đang đăng nhập...",
+  signingUp: "Đang đăng ký...",
+  magicLinkSent: "Kiểm tra email của bạn để lấy liên kết đăng nhập!",
+  signInToContinue: "Đăng nhập để tiếp tục",
+  cancel: "Hủy",
+
+  // Account Modal
+  accountSettings: "Cài đặt tài khoản",
+  profile: "Hồ sơ",
+  password: "Mật khẩu",
+  updateProfile: "Cập nhật hồ sơ",
+  fullName: "Họ và tên",
+  avatar: "Ảnh đại diện",
+  uploading: "Đang tải lên...",
+  uploadAvatar: "Tải ảnh đại diện",
+  update: "Cập nhật",
+  updating: "Đang cập nhật...",
+  profileUpdated: "Hồ sơ đã được cập nhật thành công!",
+  changePassword: "Đổi mật khẩu",
+  newPassword: "Mật khẩu mới",
+  confirmNewPassword: "Xác nhận mật khẩu mới",
+  passwordUpdated: "Mật khẩu đã được cập nhật thành công!",
+  passwordsDoNotMatch: "Mật khẩu không khớp.",
+  
+  // Task Dashboard
+  dashboardTitle: "Bảng Công Việc",
+  myTasksTitle: "Công Việc Của Tôi",
+  allTasksTitle: "Tất Cả Công Việc",
+  signInToManageTasks: "Vui lòng đăng nhập để quản lý công việc của bạn.",
+  noTasksFound: "Không có công việc nào. Thêm một việc để bắt đầu!",
+  addNewTask: "Thêm Công Việc Mới",
+  editTask: "Chỉnh Sửa Công Việc",
+  deleteTask: "Xóa Công Việc",
+  confirmDeleteTask: "Xác Nhận Xóa",
+  deleteTaskConfirmationMessage: (taskTitle: string) => `Bạn có chắc muốn xóa công việc "${taskTitle}" không? Hành động này không thể hoàn tác.`,
+  boardView: "Xem dạng bảng",
+  calendarView: "Xem dạng lịch",
+  summaryView: "Xem tóm tắt",
+
+  // Task Status
+  status: "Trạng thái",
+  todo: "Cần làm",
+  inprogress: "Đang làm",
+  done: "Hoàn thành",
+  cancelled: "Đã hủy",
+  overdue: "Quá hạn",
+
+  // Task Priority
+  priority: "Ưu tiên",
+  low: "Thấp",
+  medium: "Vừa",
+  high: "Cao",
+
+  // Task Card
+  creationTime: "Tạo lúc",
+  assignee: "Người phụ trách",
+  createdBy: "Người giao việc",
+  totalTimeLogged: "Tổng thời gian",
+  startTimer: "Bắt đầu tính giờ",
+  stopTimer: "Dừng tính giờ",
+  timerRunningOnAnotherTask: "Đang tính giờ cho công việc khác",
+  cancelTask: "Hủy công việc",
+
+  // Task Modal
+  taskTitleLabel: "Tiêu đề công việc",
+  descriptionLabel: "Mô tả (tùy chọn)",
+  dueDateLabel: "Ngày hết hạn (tùy chọn)",
+  attachments: "Tệp đính kèm",
+  addAttachment: "Thêm tệp",
+  pasteOrDrop: "Thả tệp vào đây hoặc dán từ clipboard",
+  comments: "Bình luận",
+  addComment: "Thêm bình luận...",
+  post: "Đăng",
+  posting: "Đang đăng...",
+  noCommentsYet: "Chưa có bình luận nào.",
+
+  // Admin Dashboard
+  allEmployees: "Tất cả Nhân viên",
+  selectEmployeePrompt: "Chọn một nhân viên để xem công việc của họ.",
+  tasksFor: (name: string) => `Công việc của ${name}`,
+  addTaskFor: (name: string) => `Thêm việc cho ${name}`,
+  overallSummary: "Tổng quan chung",
+  performanceSummary: "Tóm tắt hiệu suất",
+  tasksByStatus: "Công việc theo Trạng thái",
+  tasksByPriority: "Công việc theo Mức độ ưu tiên",
+  today: "Hôm nay",
+  thisWeek: "Tuần này",
+  thisMonth: "Tháng này",
+  last7Days: "7 ngày qua",
+  last30Days: "30 ngày qua",
+  avgCompletionTime: "Thời gian hoàn thành TB",
+  allTasksBoard: "Bảng công việc chung",
+  customMonth: "Theo Tháng",
+  customRange: "Khoảng Ngày",
+
+  // Generic Actions
+  close: "Đóng",
+  save: "Lưu",
+
+  // Admin Modals
+  employee: "Nhân viên",
+  selectEmployee: "Chọn một Nhân viên",
+  editEmployeeProfile: "Chỉnh sửa Hồ sơ Nhân viên",
+  role: "Chức vụ",
+  admin: "Quản lý",
+  // FIX: Add missing translations for modals.
+  addNewTimeEntry: "Thêm Chấm Công Mới",
+  date: "Ngày",
+  startTime: "Giờ Bắt Đầu",
+  endTime: "Giờ Kết Thúc (tùy chọn)",
+  editPerformanceReview: "Chỉnh Sửa Đánh Giá Hiệu Suất",
+  score: "Điểm",
+  // comments: "Nhận xét",
+
+  // Activity Log
+  noActivity: "Không tìm thấy hoạt động gần đây.",
+  log_created_task: (user, task) => `${user} đã tạo công việc ${task}.`,
+  log_updated_task: (user, task) => `${user} đã cập nhật công việc ${task}.`,
+  log_deleted_task: (user, task) => `${user} đã xóa công việc ${task}.`,
+  log_status_changed: (user, task, from, to) => `${user} đã đổi trạng thái của ${task} từ ${from} sang ${to}.`,
+  log_added_attachments: (user, count, task) => `${user} đã thêm ${count} tệp đính kèm vào ${task}.`,
+  log_removed_attachments: (user, count, task) => `${user} đã xóa ${count} tệp đính kèm khỏi ${task}.`,
+  a_user: "Một người dùng",
+  a_task: "một công việc",
+
+  // Settings
+  defaultDueDateIn: "Ngày hết hạn mặc định sau",
+  days: "ngày",
+
+  // User Guide
+  userGuide_s1_title: "Bắt đầu",
+  userGuide_s1_l1_strong: "Đăng nhập:",
+  userGuide_s1_l1_text: "Đăng nhập để truy cập bảng công việc cá nhân của bạn.",
+  userGuide_s1_l2_strong: "Tổng quan trang chính:",
+  userGuide_s1_l2_text: "Trang chính hiển thị các công việc của bạn được sắp xếp theo trạng thái: Cần làm, Đang làm và Hoàn thành.",
+
+  userGuide_s2_title: "Quản lý Công việc",
+  userGuide_s2_l1_strong: "Thêm công việc:",
+  userGuide_s2_l1_text: "Nhấp vào nút 'Thêm Công Việc Mới' để tạo một công việc mới. Bạn có thể đặt tiêu đề, mô tả, mức độ ưu tiên và ngày hết hạn.",
+  userGuide_s2_l2_strong: "Cập nhật công việc:",
+  userGuide_s2_l2_text: "Nhấp vào bất kỳ thẻ công việc nào để mở trình chỉnh sửa. Bạn có thể thay đổi trạng thái của nó bằng cách di chuyển nó sang cột khác hoặc chỉnh sửa chi tiết của nó.",
+  userGuide_s2_l3_strong: "Ưu tiên & Trạng thái:",
+  userGuide_s2_l3_text: "Sử dụng các mức độ ưu tiên (Thấp, Vừa, Cao) để tổ chức công việc của bạn. Các cột trạng thái giúp bạn theo dõi tiến độ từ đầu đến cuối.",
+
+  userGuide_s3_title: "Trang Quản lý",
+  userGuide_s3_l1_strong: "Chuyển sang chế độ xem Quản lý:",
+  userGuide_s3_l1_text: "Nếu bạn là quản lý, sử dụng nút chuyển đổi trên thanh tiêu đề để chuyển sang 'Trang Quản lý'.",
+  userGuide_s3_l2_strong: "Xem công việc của nhân viên:",
+  userGuide_s3_l2_text: "Chọn một nhân viên từ danh sách để xem và quản lý công việc của họ. Bạn cũng có thể xem tổng quan về tất cả các công việc trong hệ thống.",
+
+  userGuide_s4_title: "Tài khoản & Cài đặt",
+  userGuide_s4_l1_strong: "Cài đặt tài khoản:",
+  userGuide_s4_l1_text: "Nhấp vào tên của bạn để cập nhật thông tin hồ sơ, chẳng hạn như họ tên và ảnh đại diện.",
+  userGuide_s4_l2_strong: "Giao diện:",
+  userGuide_s4_l2_text: "Sử dụng biểu tượng cài đặt để chuyển đổi giữa giao diện sáng/tối và thay đổi ngôn ngữ của ứng dụng.",
+};
+
+const th: Translation = {
+  // This is a placeholder, you can add Thai translations here.
+  ...en,
+  language: "ภาษา",
+  employeeDashboard: "งานของฉัน",
+  adminDashboard: "แดชบอร์ดผู้จัดการ",
+  myTasks: "งานของฉัน",
+  totalTasks: "งานทั้งหมด",
+  authHeader: "ยินดีต้อนรับสู่ Infi Project",
+  authPrompt: "ลงชื่อเข้าใช้เพื่อจัดการงานของคุณ",
+  dashboardTitle: "บอร์ดงาน",
+  addNewTask: "เพิ่มงานใหม่",
+  todo: "ต้องทำ",
+  inprogress: "กำลังทำ",
+  done: "เสร็จแล้ว",
+  customMonth: "เลือกเดือน",
+  customRange: "ช่วงวันที่",
+};
+
+
+export const translations = { en, vi, th };
+
+export const languageOptions = [
+    { id: 'en', name: 'English' },
+    { id: 'vi', name: 'Tiếng Việt' },
+    { id: 'th', name: 'ไทย' },
+];
