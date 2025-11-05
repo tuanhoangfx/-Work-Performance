@@ -230,6 +230,8 @@ export type Translation = {
   allTasksBoard: string;
   customMonth: string;
   customRange: string;
+  clearCancelledTasks: string;
+  clearCancelledTasksConfirmation: (count: number) => string;
   
   // Generic Actions
   close: string;
@@ -258,6 +260,7 @@ export type Translation = {
   log_status_changed: (user: string, task: string, from: string, to: string) => string;
   log_added_attachments: (user: string, count: number, task: string) => string;
   log_removed_attachments: (user: string, count: number, task: string) => string;
+  log_cleared_cancelled_tasks: (user: string, count: number) => string;
   a_user: string;
   a_task: string;
   

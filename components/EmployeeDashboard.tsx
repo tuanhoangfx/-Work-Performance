@@ -3,7 +3,7 @@ import { useSettings } from '../context/SettingsContext';
 import { supabase } from '../lib/supabase';
 import type { Task, TimeLog } from '../types';
 import type { Session } from '@supabase/supabase-js';
-import { SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from './Icons';
+import { SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './Icons';
 import TaskCard from './TaskCard';
 import CalendarView from './CalendarView';
 import PerformanceSummary from './PerformanceSummary';
@@ -18,6 +18,7 @@ interface TaskDashboardProps {
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
+    onClearCancelledTasks: (tasks: Task[]) => void;
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -30,7 +31,7 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -109,9 +110,20 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
                             onDragLeave={() => setDragOverStatus(null)}
                             className={`bg-gray-100 dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
                         >
-                            <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center gap-2`}>
-                                {icon}
-                                <span>{title} ({tasks.length})</span>
+                            <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
+                                <div className="flex items-center gap-2">
+                                    {icon}
+                                    <span>{title} ({tasks.length})</span>
+                                </div>
+                                {status === 'cancelled' && tasks.length > 0 && (
+                                    <button 
+                                        onClick={() => onClearCancelledTasks(tasks)}
+                                        className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                                        title={t.clearCancelledTasks}
+                                    >
+                                        <TrashIcon size={14} />
+                                    </button>
+                                )}
                             </h3>
                             <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
                                 {tasks.map(task => (

@@ -79,6 +79,8 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                 return t.log_added_attachments(user.props.children, log.details?.count || 0, task.props.children);
             case 'removed_attachments':
                  return t.log_removed_attachments(user.props.children, log.details?.count || 0, task.props.children);
+            case 'cleared_cancelled_tasks':
+                return t.log_cleared_cancelled_tasks(user.props.children, log.details?.count || 0);
             default:
                 return `${user.props.children} ${log.action} ${task.props.children}`;
         }

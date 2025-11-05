@@ -143,6 +143,8 @@ const en: Translation = {
   allTasksBoard: "All Tasks Board",
   customMonth: "By Month",
   customRange: "Date Range",
+  clearCancelledTasks: "Clear All",
+  clearCancelledTasksConfirmation: (count: number) => `Are you sure you want to permanently delete all ${count} cancelled tasks?`,
 
   // Generic Actions
   close: "Close",
@@ -171,6 +173,7 @@ const en: Translation = {
   log_status_changed: (user, task, from, to) => `${user} changed status of ${task} from ${from} to ${to}.`,
   log_added_attachments: (user, count, task) => `${user} added ${count} attachment(s) to ${task}.`,
   log_removed_attachments: (user, count, task) => `${user} removed ${count} attachment(s) from ${task}.`,
+  log_cleared_cancelled_tasks: (user, count) => `${user} cleared ${count} cancelled task(s).`,
   a_user: "A user",
   a_task: "a task",
 
@@ -349,6 +352,8 @@ const vi: Translation = {
   allTasksBoard: "Bảng công việc chung",
   customMonth: "Theo Tháng",
   customRange: "Khoảng Ngày",
+  clearCancelledTasks: "Dọn dẹp",
+  clearCancelledTasksConfirmation: (count: number) => `Bạn có chắc muốn xóa vĩnh viễn tất cả ${count} công việc đã hủy không?`,
 
   // Generic Actions
   close: "Đóng",
@@ -377,6 +382,7 @@ const vi: Translation = {
   log_status_changed: (user, task, from, to) => `${user} đã đổi trạng thái của ${task} từ ${from} sang ${to}.`,
   log_added_attachments: (user, count, task) => `${user} đã thêm ${count} tệp đính kèm vào ${task}.`,
   log_removed_attachments: (user, count, task) => `${user} đã xóa ${count} tệp đính kèm khỏi ${task}.`,
+  log_cleared_cancelled_tasks: (user, count) => `${user} đã dọn dẹp ${count} công việc đã hủy.`,
   a_user: "Một người dùng",
   a_task: "một công việc",
 

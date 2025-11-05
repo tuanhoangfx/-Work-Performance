@@ -318,6 +318,41 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
     }
   };
 
+  const handleClearCancelledTasks = async (tasksToClear: Task[]) => {
+    if (tasksToClear.length === 0) {
+      return;
+    }
+    if (window.confirm(t.clearCancelledTasksConfirmation(tasksToClear.length))) {
+      try {
+        const taskIds = tasksToClear.map(t => t.id);
+
+        await logActivity('cleared_cancelled_tasks', { count: taskIds.length });
+
+        const attachmentsToDelete = tasksToClear.flatMap(t => t.task_attachments || []);
+        if (attachmentsToDelete.length > 0) {
+            const filePaths = attachmentsToDelete.map(att => att.file_path);
+            const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
+            if (storageError) {
+                console.error("Error deleting storage files for cancelled tasks:", storageError.message);
+            }
+        }
+
+        const { error } = await supabase.from('tasks').delete().in('id', taskIds);
+        if (error) throw error;
+
+        if (activeTimer && taskIds.includes(activeTimer.task_id)) {
+            setActiveTimer(null);
+        }
+
+        refreshData();
+      } catch (error: any) {
+        console.error("Error clearing cancelled tasks:", error.message);
+        alert(`Error: ${error.message}`);
+      }
+    }
+  };
+
+
   useEffect(() => {
     if (session) {
       getProfile(session.user);
@@ -343,18 +378,18 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
       if (!session) {
         return (
           <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn p-4">
-            <div className="w-full max-w-sm mx-auto mb-8">
+            <div className="w-full max-w-xs mx-auto mb-8">
               <div className="flex justify-between items-center text-center mb-2">
                 <div className="w-24 text-center">
-                  <ClipboardListIcon size={32} className="text-orange-400 mx-auto" />
+                  <ClipboardListIcon size={28} className="text-orange-400 mx-auto" />
                   <span className="mt-2 font-semibold text-sm block">{t.todo}</span>
                 </div>
                 <div className="w-24 text-center">
-                  <SpinnerIcon size={32} className="text-indigo-400 mx-auto animate-spin" />
+                  <SpinnerIcon size={28} className="text-indigo-400 mx-auto animate-spin" />
                   <span className="mt-2 font-semibold text-sm block">{t.inprogress}</span>
                 </div>
                 <div className="w-24 text-center">
-                  <CheckCircleIcon size={32} className="text-green-400 mx-auto" />
+                  <CheckCircleIcon size={28} className="text-green-400 mx-auto" />
                   <span className="mt-2 font-semibold text-sm block">{t.done}</span>
                 </div>
               </div>
@@ -385,6 +420,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
             onStartTimer={handleStartTimer}
             onStopTimer={handleStopTimer}
             activeTimer={activeTimer}
+            onClearCancelledTasks={handleClearCancelledTasks}
           />;
       }
       
@@ -398,6 +434,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         onStartTimer={handleStartTimer}
         onStopTimer={handleStopTimer}
         activeTimer={activeTimer}
+        onClearCancelledTasks={handleClearCancelledTasks}
       />;
   }
 

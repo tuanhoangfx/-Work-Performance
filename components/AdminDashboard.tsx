@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import type { Profile, Task, TimeLog } from '../types';
-import { PlusIcon, EditIcon, UsersIcon, SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from './Icons';
+import { PlusIcon, EditIcon, UsersIcon, SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './Icons';
 import TaskCard from './TaskCard';
 import EditEmployeeModal from './EditEmployeeModal';
 import CalendarView from './CalendarView';
@@ -18,6 +18,7 @@ interface AdminDashboardProps {
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
+    onClearCancelledTasks: (tasks: Task[]) => void;
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -30,7 +31,7 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshData, allUsers, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshData, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [view, setView] = useState<'all' | 'employee'>('all');
     const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
@@ -70,6 +71,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
                             onEditTask={onEditTask}
                             onDeleteTask={onDeleteTask}
                             onUpdateStatus={onUpdateStatus}
+                            onClearCancelledTasks={onClearCancelledTasks}
                         />;
             case 'employee':
                 return selectedEmployee ? <EmployeeTaskView 
@@ -79,6 +81,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
                                                 onEditTask={onEditTask}
                                                 onDeleteTask={onDeleteTask}
                                                 onUpdateStatus={onUpdateStatus}
+                                                onClearCancelledTasks={onClearCancelledTasks}
                                             /> : null;
             default:
                 return null;
@@ -126,9 +129,10 @@ interface EmployeeTaskViewProps {
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
+    onClearCancelledTasks: (tasks: Task[]) => void;
 }
 
-const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersion, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -189,9 +193,20 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
                             onDragLeave={() => setDragOverStatus(null)}
                             className={`bg-white dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
                         >
-                            <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center gap-2`}>
-                                {icon}
-                                <span>{title} ({tasks.length})</span>
+                            <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
+                                <div className="flex items-center gap-2">
+                                    {icon}
+                                    <span>{title} ({tasks.length})</span>
+                                </div>
+                                {status === 'cancelled' && tasks.length > 0 && (
+                                    <button 
+                                        onClick={() => onClearCancelledTasks(tasks)}
+                                        className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                                        title={t.clearCancelledTasks}
+                                    >
+                                        <TrashIcon size={14} />
+                                    </button>
+                                )}
                             </h3>
                             <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
                                 {tasks.map(task => (
@@ -226,7 +241,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
     );
 };
 
-const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartTimer' | 'onStopTimer' | 'activeTimer'>> = ({ dataVersion, allUsers, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartTimer' | 'onStopTimer' | 'activeTimer' | 'onClearCancelledTasks'> & { onClearCancelledTasks: (tasks: Task[]) => void; }> = ({ dataVersion, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [allTasks, setAllTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -306,9 +321,20 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
                                 onDragLeave={() => setDragOverStatus(null)}
                                 className={`bg-white dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
                             >
-                                <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center gap-2`}>
-                                    {icon}
-                                    <span>{title} ({tasks.length})</span>
+                                <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
+                                    <div className="flex items-center gap-2">
+                                        {icon}
+                                        <span>{title} ({tasks.length})</span>
+                                    </div>
+                                    {status === 'cancelled' && tasks.length > 0 && (
+                                        <button 
+                                            onClick={() => onClearCancelledTasks(tasks)}
+                                            className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                                            title={t.clearCancelledTasks}
+                                        >
+                                            <TrashIcon size={14} />
+                                        </button>
+                                    )}
                                 </h3>
                                 <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
                                     {tasks.map(task => (

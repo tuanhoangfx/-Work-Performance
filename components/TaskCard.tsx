@@ -72,6 +72,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
     const isCancelled = task.status === 'cancelled';
     const isArchived = isDone || isCancelled;
 
+    const isOverdue = useMemo(() => {
+        if (isArchived || !task.due_date) return false;
+        // The due date is the last moment of that day. It's overdue the next day.
+        const dueDateEnd = new Date(`${task.due_date}T23:59:59.999`);
+        return new Date() > dueDateEnd;
+    }, [task.due_date, isArchived]);
+
     useEffect(() => {
         let interval: number | undefined;
 
@@ -93,10 +100,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             if (interval) clearInterval(interval);
         };
     }, [task.created_at, task.updated_at, task.status, isArchived]);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isOverdue = !isArchived && task.due_date && new Date(task.due_date) < today;
     
     const handleDeleteClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -105,7 +108,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
 
     return (
         <div 
-            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${isArchived ? 'opacity-60' : ''} ${task.status === 'inprogress' ? 'border-sky-500 animate-breathingGlow' : ''}`}
+            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${isArchived ? 'opacity-60' : ''} ${task.status === 'inprogress' ? 'border-sky-500 animate-breathingGlow' : ''} ${isOverdue ? 'animate-flashing-border' : ''}`}
             draggable={!isArchived}
             onDragStart={() => onDragStart(task.id)}
         >
