@@ -79,6 +79,37 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         }
     };
 
+    const handleNotificationClick = async (notification: Notification) => {
+        onViewTask(notification.data.task_id);
+
+        if (!notification.is_read) {
+            // Optimistic UI update for instant feedback
+            setNotifications(currentNotifications =>
+                currentNotifications.map(n =>
+                    n.id === notification.id ? { ...n, is_read: true } : n
+                )
+            );
+            setUnreadCount(c => Math.max(0, c - 1));
+
+            // Persist the change to the database in the background
+            const { error } = await supabase
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('id', notification.id);
+            
+            if (error) {
+                console.error("Failed to mark notification as read:", error);
+                // Revert UI change on error
+                 setNotifications(currentNotifications =>
+                    currentNotifications.map(n =>
+                        n.id === notification.id ? { ...n, is_read: false } : n
+                    )
+                );
+                setUnreadCount(c => c + 1);
+            }
+        }
+    };
+
 
     const formatNotificationMessage = (notification: Notification) => {
         const actorName = notification.profiles?.full_name || 'Someone';
@@ -137,11 +168,11 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                                 <li 
                                     key={notification.id} 
                                     className={`p-3 flex items-start gap-3 transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 ${!notification.is_read ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}
-                                    onClick={() => onViewTask(notification.data.task_id)}
+                                    onClick={() => handleNotificationClick(notification)}
                                 >
                                     <div className="flex-shrink-0 mt-0.5">
                                         {notification.profiles?.avatar_url ? (
-                                            <img src={notification.profiles.avatar_url} alt={notification.profiles.full_name} className="w-8 h-8 rounded-full object-cover" />
+                                            <img src={notification.profiles.avatar_url} alt={notification.profiles.full_name || ''} className="w-8 h-8 rounded-full object-cover" />
                                         ) : (
                                             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold">
                                                 {(notification.profiles?.full_name || '?').charAt(0).toUpperCase()}
