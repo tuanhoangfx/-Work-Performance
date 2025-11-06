@@ -8,7 +8,6 @@ import { Profile, Task } from '../types';
 
 interface TopBarProps {
     session: Session | null;
-    dataVersion: number;
     onAddNewTask: () => void;
     profile: Profile | null;
     isAdminView: boolean;
@@ -20,12 +19,12 @@ interface TopBarProps {
     unreadCount: number;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ session, dataVersion, onAddNewTask, profile, isAdminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
+const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, isAdminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
     const { t } = useSettings();
     const canAddTask = session && !(profile?.role === 'admin' && isAdminView);
 
     return (
-        <div className="relative bg-slate-100 dark:bg-black/20 text-gray-600 dark:text-gray-400 animate-fadeInDown border-b border-black/5 dark:border-white/5">
+        <div className="relative z-10 bg-slate-100 dark:bg-black/20 text-gray-600 dark:text-gray-400 animate-fadeInDown border-b border-black/5 dark:border-white/5">
             <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-4">
                 
                 {/* Left Side */}
@@ -37,7 +36,6 @@ const TopBar: React.FC<TopBarProps> = ({ session, dataVersion, onAddNewTask, pro
                 <div className="flex-1 flex justify-center">
                      <ActivityTicker 
                         session={session} 
-                        dataVersion={dataVersion}
                         onEditTask={onEditTask}
                         onDeleteTask={onDeleteTask}
                         onUpdateStatus={onUpdateStatus}

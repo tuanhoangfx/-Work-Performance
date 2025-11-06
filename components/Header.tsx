@@ -15,7 +15,6 @@ interface HeaderProps {
   isAdminView: boolean;
   setIsAdminView: (isAdminView: boolean) => void;
   onAddNewTask: () => void;
-  dataVersion: number;
   onEditTask: (task: Task | Partial<Task> | null) => void;
   onDeleteTask: (task: Task) => void;
   onUpdateStatus: (task: Task, status: Task['status']) => void;
@@ -116,14 +115,13 @@ const AdminViewToggle: React.FC<{isAdminView: boolean, setIsAdminView: (isAdminV
 };
 
 
-const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
+const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
   const { t } = useSettings();
 
   return (
     <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg shadow-sm flex flex-col">
       <TopBar 
         session={session}
-        dataVersion={dataVersion}
         onAddNewTask={onAddNewTask}
         profile={profile}
         isAdminView={isAdminView}

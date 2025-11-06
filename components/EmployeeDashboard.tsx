@@ -8,11 +8,11 @@ import TaskCard from './TaskCard';
 import CalendarView from './CalendarView';
 import PerformanceSummary from './PerformanceSummary';
 import FilterBar, { Filters } from './FilterBar';
+import type { DataChange } from '../App';
 
 interface TaskDashboardProps {
     session: Session;
-    dataVersion: number;
-    refreshData: () => void;
+    lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onClearCancelledTasks: (tasks: Task[]) => void;
@@ -33,7 +33,7 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,7 +64,32 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
         if (session?.user) {
             fetchTasks(session.user.id);
         }
-    }, [session, dataVersion, fetchTasks]);
+    }, [session, fetchTasks]);
+
+    useEffect(() => {
+        if (!lastDataChange) return;
+
+        const { type, payload } = lastDataChange;
+
+        switch (type) {
+            case 'add':
+                setTasks(prev => [payload, ...prev]);
+                break;
+            case 'update':
+                setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
+                break;
+            case 'delete':
+                setTasks(prev => prev.filter(t => t.id !== payload.id));
+                break;
+            case 'delete_many':
+                setTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
+                break;
+            case 'batch_update': // A generic trigger to re-fetch, e.g., for timers
+                if(session?.user) fetchTasks(session.user.id);
+                break;
+        }
+    }, [lastDataChange, session, fetchTasks]);
+
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {

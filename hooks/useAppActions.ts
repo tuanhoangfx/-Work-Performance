@@ -1,7 +1,8 @@
 import { useState, useCallback, Dispatch, SetStateAction } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
-import type { Profile, Task, TimeLog } from '../types';
+import type { Task, TimeLog } from '../types';
+import type { DataChange } from '../App';
 
 interface ActionModalState {
   isOpen: boolean;
@@ -12,17 +13,16 @@ interface ActionModalState {
   confirmButtonClass?: string;
 }
 
-// FIX: Sử dụng trực tiếp Dispatch và SetStateAction đã được nhập để khắc phục lỗi 'Cannot find namespace 'React''.
 type SetActionModal = Dispatch<SetStateAction<ActionModalState>>;
 
 interface UseAppActionsProps {
     session: Session | null;
     setActionModal: SetActionModal;
-    refreshData: () => void;
+    notifyDataChange: (change: Omit<DataChange, 'timestamp'>) => void;
     t: any; // Translation object
 }
 
-export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAppActionsProps) => {
+export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: UseAppActionsProps) => {
     const [activeTimer, setActiveTimer] = useState<TimeLog | null>(null);
 
     const logActivity = useCallback(async (action: string, details: Record<string, any>) => {
@@ -44,13 +44,13 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
         newFiles: File[], 
         deletedAttachmentIds: number[], 
         newComments: string[]
-    ) => {
-        if (!session?.user) return;
+    ): Promise<boolean> => {
+        if (!session?.user) return false;
 
         const userId = taskData.user_id;
         if (!userId) {
-            setActionModal({ isOpen: true, title: 'Error', message: 'Assignee is required.' });
-            return;
+            console.error('Assignee is required.');
+            return false;
         }
         
         const isNewTask = !editingTask || !('id' in editingTask) || !editingTask.id;
@@ -61,8 +61,8 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
 
         try {
             const { data: savedTask, error: saveError } = isNewTask
-                ? await supabase.from('tasks').insert(dataToSave).select().single()
-                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select().single();
+                ? await supabase.from('tasks').insert(dataToSave).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single()
+                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
 
             if (saveError) throw saveError;
             if (!savedTask) throw new Error("Task could not be saved.");
@@ -125,10 +125,15 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
                 }
             }
             
-            refreshData();
+            const { data: finalTask, error: finalError } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('id', taskId).single();
+            if (finalError) throw finalError;
+            
+            notifyDataChange({ type: isNewTask ? 'add' : 'update', payload: finalTask });
+            console.log(isNewTask ? "Task created successfully." : "Task updated successfully.");
+            return true;
         } catch (error: any) {
             console.error("Error in save task process:", error.message);
-            setActionModal({ isOpen: true, title: 'Error', message: error.message });
+            return false;
         }
     };
 
@@ -146,17 +151,17 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
             if (error) throw error;
             
             if (!data || data.length === 0) {
-                setActionModal({ isOpen: true, title: 'Error', message: 'Could not delete task. You may not have permission.' });
+                console.error('Could not delete task. You may not have permission.');
                 return;
             }
 
             if (activeTimer?.task_id === task.id) setActiveTimer(null);
-            refreshData();
+            notifyDataChange({ type: 'delete', payload: { id: task.id } });
+            console.log('Task deleted successfully.');
         } catch (error: any) {
             console.error("Error deleting task:", error.message);
-            setActionModal({ isOpen: true, title: 'Error', message: `Error deleting task: ${error.message}` });
         }
-    }, [logActivity, activeTimer, refreshData, setActionModal]);
+    }, [logActivity, activeTimer, notifyDataChange]);
 
     const handleDeleteTask = useCallback((task: Task) => {
         setActionModal({
@@ -184,12 +189,12 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
             if (error) throw error;
 
             if (activeTimer && taskIds.includes(activeTimer.task_id)) setActiveTimer(null);
-            refreshData();
+            notifyDataChange({ type: 'delete_many', payload: { ids: taskIds } });
+            console.log("Cancelled tasks cleared.");
         } catch (error: any) {
             console.error("Error clearing cancelled tasks:", error.message);
-            setActionModal({ isOpen: true, title: 'Error', message: `Error clearing tasks: ${error.message}` });
         }
-    }, [logActivity, activeTimer, refreshData, setActionModal]);
+    }, [logActivity, activeTimer, notifyDataChange]);
 
     const handleClearCancelledTasks = useCallback((tasksToClear: Task[]) => {
         if (tasksToClear.length === 0) return;
@@ -204,14 +209,15 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
     }, [setActionModal, executeClearCancelledTasks, t]);
     
     const handleUpdateStatus = useCallback(async (task: Task, status: Task['status']) => {
-        const { error } = await supabase.from('tasks').update({ status }).eq('id', task.id);
+        const { data, error } = await supabase.from('tasks').update({ status }).eq('id', task.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
         if (error) {
             console.error("Error updating task status:", error.message);
         } else {
             await logActivity('status_changed', { task_id: task.id, task_title: task.title, from: task.status, to: status });
-            refreshData();
+            notifyDataChange({ type: 'update', payload: data });
+            console.log('Task status updated.');
         }
-    }, [logActivity, refreshData]);
+    }, [logActivity, notifyDataChange]);
 
     const handleStartTimer = useCallback(async (task: Task) => {
         if (!session || activeTimer) return;
@@ -223,11 +229,11 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
                 }).select().single();
             if (error) throw error;
             setActiveTimer(data);
-            refreshData();
+            notifyDataChange({ type: 'batch_update', payload: null }); // generic update
         } catch (error: any) {
-            setActionModal({ isOpen: true, title: 'Error', message: error.message });
+            console.error(error.message);
         }
-    }, [session, activeTimer, refreshData, setActionModal]);
+    }, [session, activeTimer, notifyDataChange]);
 
     const handleStopTimer = useCallback(async (timeLog: TimeLog) => {
         if (!activeTimer || activeTimer.id !== timeLog.id) return;
@@ -236,11 +242,12 @@ export const useAppActions = ({ session, setActionModal, refreshData, t }: UseAp
                 .from('task_time_logs').update({ end_time: new Date().toISOString() }).eq('id', timeLog.id);
             if (error) throw error;
             setActiveTimer(null);
-            refreshData();
-        } catch (error: any) {
-            setActionModal({ isOpen: true, title: 'Error', message: error.message });
+            notifyDataChange({ type: 'batch_update', payload: null }); // generic update
+        } catch (error: any)
+ {
+            console.error(error.message);
         }
-    }, [activeTimer, refreshData, setActionModal]);
+    }, [activeTimer, notifyDataChange]);
     
     return {
         activeTimer,

@@ -27,6 +27,12 @@ const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
 const NotificationsModal = lazy(() => import('./components/NotificationsModal'));
 const ActionModal = lazy(() => import('./components/ActionModal'));
 
+export type DataChange = {
+  type: 'add' | 'update' | 'delete' | 'delete_many' | 'batch_update';
+  payload: any;
+  timestamp: number;
+};
+
 const SupabaseNotConfigured: React.FC = () => (
   <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn bg-amber-100 dark:bg-amber-900/30 p-8 rounded-lg border border-amber-300 dark:border-amber-700">
     <h2 className="text-2xl font-bold text-amber-700 dark:text-amber-300">Supabase Not Configured</h2>
@@ -58,8 +64,10 @@ const AppContent: React.FC = () => {
   const [language, setLanguage] = useLocalStorage<keyof typeof translations>('language', 'en');
   const [defaultDueDateOffset, setDefaultDueDateOffset] = useLocalStorage<number>('defaultDueDateOffset', 0);
   
-  const [dataVersion, setDataVersion] = useState(0);
-  const refreshData = useCallback(() => setDataVersion(v => v + 1), []);
+  const [lastDataChange, setLastDataChange] = useState<DataChange | null>(null);
+  const notifyDataChange = useCallback((change: Omit<DataChange, 'timestamp'>) => {
+    setLastDataChange({ ...change, timestamp: Date.now() });
+  }, []);
 
   const t = translations[language];
 
@@ -73,11 +81,10 @@ const AppContent: React.FC = () => {
       activeTimer,
       taskActions,
       timerActions,
-      logActivity,
   } = useAppActions({
       session,
       setActionModal: modals.action.setState,
-      refreshData,
+      notifyDataChange: notifyDataChange,
       t
   });
 
@@ -162,8 +169,7 @@ const AppContent: React.FC = () => {
       
       if (profile?.role === 'admin' && isAdminView) {
           return <AdminDashboard 
-            dataVersion={dataVersion} 
-            refreshData={refreshData} 
+            lastDataChange={lastDataChange}
             allUsers={allUsers}
             onEditTask={modals.task.open}
             onDeleteTask={taskActions.handleDeleteTask}
@@ -177,8 +183,7 @@ const AppContent: React.FC = () => {
       
       return <EmployeeDashboard 
         session={session} 
-        dataVersion={dataVersion} 
-        refreshData={refreshData}
+        lastDataChange={lastDataChange}
         onEditTask={modals.task.open}
         onDeleteTask={taskActions.handleDeleteTask}
         onClearCancelledTasks={taskActions.handleClearCancelledTasks}
@@ -202,7 +207,6 @@ const AppContent: React.FC = () => {
           isAdminView={isAdminView}
           setIsAdminView={setIsAdminView}
           onAddNewTask={() => modals.task.open(null)}
-          dataVersion={dataVersion}
           onEditTask={modals.task.open}
           onDeleteTask={taskActions.handleDeleteTask}
           onUpdateStatus={taskActions.handleUpdateStatus}
@@ -236,7 +240,12 @@ const AppContent: React.FC = () => {
         <TaskModal 
           isOpen={modals.task.isOpen}
           onClose={modals.task.close}
-          onSave={(taskData, newFiles, deletedIds, newComments) => taskActions.handleSaveTask(taskData, modals.task.editingTask, newFiles, deletedIds, newComments)}
+          onSave={async (taskData, newFiles, deletedIds, newComments) => {
+            const success = await taskActions.handleSaveTask(taskData, modals.task.editingTask, newFiles, deletedIds, newComments);
+            if (success) {
+              modals.task.close();
+            }
+          }}
           task={modals.task.editingTask}
           allUsers={allUsers}
           currentUser={profile}

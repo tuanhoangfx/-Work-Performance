@@ -9,7 +9,7 @@ interface PerformanceSummaryProps {
 
 type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';
 
-const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = ({ icon, label, value }) => (
+const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = React.memo(({ icon, label, value }) => (
     <div className="bg-white dark:bg-gray-800/80 rounded-lg shadow p-3 flex items-center gap-3">
         <div className="p-2 bg-gray-100 dark:bg-gray-700/50 rounded-full">{icon}</div>
         <div>
@@ -17,7 +17,7 @@ const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string |
             <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{value}</p>
         </div>
     </div>
-);
+));
 
 const MonthPicker: React.FC<{ value: string, onChange: (value: string) => void }> = ({ value, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);

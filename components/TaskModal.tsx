@@ -44,7 +44,7 @@ const AttachmentItem: React.FC<{
     onRemove: () => void;
     onPreview: () => void;
     isNew: boolean;
-}> = ({ file, onRemove, onPreview, isNew }) => {
+}> = React.memo(({ file, onRemove, onPreview, isNew }) => {
     
     const handleDownload = async () => {
         if (isNew || !file.file_path) return;
@@ -97,7 +97,7 @@ const AttachmentItem: React.FC<{
             </div>
         </div>
     );
-};
+});
 
 
 const AttachmentPreviewModal: React.FC<{ attachment: any; onClose: () => void }> = ({ attachment, onClose }) => {
@@ -137,6 +137,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
   const [tempNewComments, setTempNewComments] = useState<TempComment[]>([]);
   const [isCommentInputVisible, setCommentInputVisible] = useState(false);
+  const [validationError, setValidationError] = useState<'title' | 'assignee' | null>(null);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +187,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
             setNewComment('');
             setEditingTaskId(currentTaskId);
             setCommentInputVisible(false);
+            setValidationError(null);
         }
     } else {
         if (editingTaskId !== undefined) {
@@ -194,6 +196,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     }
   }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId]);
 
+  useEffect(() => {
+    if (validationError === 'title' && title.trim()) {
+      setValidationError(null);
+    }
+  }, [title, validationError]);
+
+  useEffect(() => {
+    if (validationError === 'assignee' && assigneeId) {
+      setValidationError(null);
+    }
+  }, [assigneeId, validationError]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -276,12 +289,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) {
-        alert("Title is required.");
+    if (!title.trim()) {
+        setValidationError('title');
         return;
     }
     if (!assigneeId) {
-        alert("Assignee is required.");
+        setValidationError('assignee');
         return;
     }
     setIsSaving(true);
@@ -358,7 +371,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     );
   };
 
-  const AssigneeSelect = ({ value, options, onChange }: { value: string; options: Profile[]; onChange: (value: string) => void }) => {
+  const AssigneeSelect = ({ value, options, onChange, hasError }: { value: string; options: Profile[]; onChange: (value: string) => void; hasError: boolean; }) => {
     const [isOpen, setIsOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -383,7 +396,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
 
     return (
         <div className="relative mt-1" ref={ref}>
-            <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left">
+            <button type="button" onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border rounded-md shadow-sm text-left ${hasError ? 'border-red-500 ring-2 ring-red-500/50 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}>
                 <div className="flex items-center gap-2">
                     <UserAvatar user={selectedOption} />
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{selectedOption?.full_name || t.selectEmployee}</span>
@@ -436,7 +449,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 {/* Left Column: Task Details */}
                 <div className="space-y-4">
                      <div>
-                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] text-lg sm:text-xl font-semibold" />
+                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className={`block w-full px-3 py-2 bg-white dark:bg-gray-700 border rounded-md shadow-sm text-lg sm:text-xl font-semibold ${validationError === 'title' ? 'border-red-500 ring-2 ring-red-500/50 animate-shake' : 'border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)]'}`} />
                     </div>
                      <div>
                         <textarea id="description" placeholder={t.descriptionLabel} rows={4} value={description} onChange={e => setDescription(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
@@ -445,7 +458,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                     <div className="grid grid-cols-2 gap-2 sm:gap-4">
                        <div>
                             <label htmlFor="assignee" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.assignee}</label>
-                            <AssigneeSelect value={assigneeId} options={allUsers} onChange={setAssigneeId} />
+                            <AssigneeSelect value={assigneeId} options={allUsers} onChange={setAssigneeId} hasError={validationError === 'assignee'}/>
                         </div>
                          <div>
                             <label htmlFor="dueDate" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.dueDateLabel}</label>

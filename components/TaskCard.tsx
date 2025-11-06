@@ -222,4 +222,4 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
     );
 };
 
-export default TaskCard;
+export default React.memo(TaskCard);

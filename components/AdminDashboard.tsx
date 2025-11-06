@@ -8,10 +8,10 @@ import EditEmployeeModal from './EditEmployeeModal';
 import CalendarView from './CalendarView';
 import PerformanceSummary from './PerformanceSummary';
 import FilterBar, { Filters } from './FilterBar';
+import type { DataChange } from '../App';
 
 interface AdminDashboardProps {
-    dataVersion: number;
-    refreshData: () => void;
+    lastDataChange: DataChange | null;
     allUsers: Profile[];
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
@@ -32,7 +32,7 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshData, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [view, setView] = useState<'all' | 'employee'>('all');
     const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
@@ -54,7 +54,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
         } else {
             setIsEditModalOpen(false);
             setEmployeeToEdit(null);
-            refreshData();
+            // This is a profile change, a full refresh is acceptable here.
+            window.location.reload();
         }
     };
     
@@ -67,7 +68,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
         switch (view) {
             case 'all':
                 return <AllTasksView 
-                            dataVersion={dataVersion}
+                            lastDataChange={lastDataChange}
                             allUsers={allUsers}
                             onEditTask={onEditTask}
                             onDeleteTask={onDeleteTask}
@@ -78,7 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
                 return selectedEmployee ? <EmployeeTaskView 
                                                 employee={selectedEmployee} 
                                                 key={selectedEmployee.id} 
-                                                dataVersion={dataVersion} 
+                                                lastDataChange={lastDataChange}
                                                 onEditTask={onEditTask}
                                                 onDeleteTask={onDeleteTask}
                                                 onUpdateStatus={onUpdateStatus}
@@ -127,7 +128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
 
 interface EmployeeTaskViewProps {
     employee: Profile;
-    dataVersion: number;
+    lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
@@ -135,7 +136,7 @@ interface EmployeeTaskViewProps {
     allUsers: Profile[];
 }
 
-const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
+const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -151,7 +152,33 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchTasks(employee.id); }, [employee.id, dataVersion, fetchTasks]);
+    useEffect(() => { fetchTasks(employee.id); }, [employee.id, fetchTasks]);
+
+    useEffect(() => {
+        if (!lastDataChange) return;
+        // This view only cares about tasks assigned to the selected employee
+        const isRelevant = (task: Task) => task.user_id === employee.id;
+
+        const { type, payload } = lastDataChange;
+        switch (type) {
+            case 'add':
+                if (isRelevant(payload)) setTasks(prev => [payload, ...prev]);
+                break;
+            case 'update':
+                setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
+                break;
+            case 'delete':
+                setTasks(prev => prev.filter(t => t.id !== payload.id));
+                break;
+            case 'delete_many':
+                setTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
+                break;
+            case 'batch_update':
+                fetchTasks(employee.id);
+                break;
+        }
+    }, [lastDataChange, employee.id, fetchTasks]);
+
     
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {
@@ -272,7 +299,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
     );
 };
 
-const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartTimer' | 'onStopTimer' | 'activeTimer' | 'onClearCancelledTasks'> & { onClearCancelledTasks: (tasks: Task[]) => void; }> = ({ dataVersion, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
+const AllTasksView: React.FC<Omit<AdminDashboardProps, 'onStartTimer' | 'onStopTimer' | 'activeTimer' | 'onClearCancelledTasks'> & { onClearCancelledTasks: (tasks: Task[]) => void; }> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t } = useSettings();
     const [allTasks, setAllTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -289,7 +316,31 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchAllTasks(); }, [fetchAllTasks, dataVersion]);
+    useEffect(() => { fetchAllTasks(); }, [fetchAllTasks]);
+    
+    useEffect(() => {
+        if (!lastDataChange) return;
+
+        const { type, payload } = lastDataChange;
+        switch (type) {
+            case 'add':
+                setAllTasks(prev => [payload, ...prev]);
+                break;
+            case 'update':
+                setAllTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
+                break;
+            case 'delete':
+                setAllTasks(prev => prev.filter(t => t.id !== payload.id));
+                break;
+            case 'delete_many':
+                setAllTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
+                break;
+            case 'batch_update':
+                fetchAllTasks();
+                break;
+        }
+    }, [lastDataChange, fetchAllTasks]);
+
 
     const filteredTasks = useMemo(() => {
         return allTasks.filter(task => {

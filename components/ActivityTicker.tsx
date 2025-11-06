@@ -48,11 +48,11 @@ const TaskPreviewPopover: React.FC<TaskPreviewPopoverProps> = ({ isOpen, onClose
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 flex items-start justify-center pt-10" aria-hidden="true" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-start justify-center pt-10" aria-hidden="true" onClick={onClose}>
             <div 
                 ref={popoverRef}
                 onClick={e => e.stopPropagation()}
-                className="w-full max-w-4xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 animate-fadeInDown overflow-hidden flex flex-col max-h-[60vh]"
+                className="w-full max-w-4xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 animate-fadeInDown overflow-hidden flex flex-col max-h-[60vh]"
             >
                 <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                     <h3 className="font-bold text-gray-800 dark:text-gray-200">{title}</h3>
@@ -91,13 +91,12 @@ const TaskPreviewPopover: React.FC<TaskPreviewPopoverProps> = ({ isOpen, onClose
 
 interface ActivityTickerProps {
     session: Session | null;
-    dataVersion: number;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
 }
 
-const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, onDeleteTask, onUpdateStatus }) => {
   const { t } = useSettings();
   const [taskCounts, setTaskCounts] = useState({ todo: 0, inprogress: 0, done: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -136,7 +135,17 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, o
   
   useEffect(() => {
     fetchTickerData();
-  }, [fetchTickerData, dataVersion]);
+
+     const changes = supabase.channel('tasks-ticker')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+        fetchTickerData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(changes)
+    }
+  }, [fetchTickerData]);
 
   useEffect(() => {
     if (!activePreview || !session) {
@@ -160,7 +169,7 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, o
         setIsLoadingPreview(false);
     };
     fetchPreviewTasks();
-  }, [activePreview, session, dataVersion]);
+  }, [activePreview, session]);
 
   const handleStatClick = (status: Task['status']) => {
     setActivePreview(current => (current === status ? null : status));

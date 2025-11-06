@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { XIcon, UserIcon } from './Icons';
@@ -20,24 +19,18 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
-    const [profileMessage, setProfileMessage] = useState({ text: '', type: '' });
     
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
-    const [passwordMessage, setPasswordMessage] = useState({ text: '', type: '' });
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const resetMessages = () => {
-        setProfileMessage({ text: '', type: '' });
-        setPasswordMessage({ text: '', type: '' });
-    };
 
     const getProfile = useCallback(async () => {
         if (!session) return;
         setProfileLoading(true);
-        resetMessages();
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -53,7 +46,6 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             }
         } catch (error: any) {
             console.error('Error fetching profile:', error.message);
-            setProfileMessage({ text: 'Error fetching profile.', type: 'error' });
         } finally {
             setProfileLoading(false);
         }
@@ -66,6 +58,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             setPassword('');
             setConfirmPassword('');
             setAvatarFile(null);
+            setPasswordError(null);
         }
     }, [isOpen, session, getProfile]);
     
@@ -82,7 +75,6 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
 
         setProfileLoading(true);
         setUploading(!!avatarFile);
-        resetMessages();
         
         try {
             let newAvatarUrl = avatarUrl;
@@ -108,14 +100,12 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             const { error: profileError } = await supabase.from('profiles').upsert(updates);
             if (profileError) throw profileError;
             
-            // Also update auth user metadata for consistency in the app
             await supabase.auth.updateUser({ data: { full_name: fullName, avatar_url: newAvatarUrl } });
             
-            setProfileMessage({ text: t.profileUpdated, type: 'success' });
+            console.log(t.profileUpdated);
             setAvatarFile(null);
         } catch (error: any) {
             console.error("Error updating profile:", error.message);
-            setProfileMessage({ text: error.message, type: 'error' });
         } finally {
             setProfileLoading(false);
             setUploading(false);
@@ -124,9 +114,9 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
 
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        resetMessages();
+        setPasswordError(null);
         if (password !== confirmPassword) {
-            setPasswordMessage({ text: t.passwordsDoNotMatch, type: 'error' });
+            setPasswordError(t.passwordsDoNotMatch);
             return;
         }
         setPasswordLoading(true);
@@ -134,9 +124,9 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
         const { error } = await supabase.auth.updateUser({ password });
 
         if (error) {
-            setPasswordMessage({ text: error.message, type: 'error' });
+            setPasswordError(error.message);
         } else {
-            setPasswordMessage({ text: t.passwordUpdated, type: 'success' });
+            console.log(t.passwordUpdated);
             setPassword('');
             setConfirmPassword('');
         }
@@ -204,11 +194,10 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
                                 </div>
                             </div>
                             )}
-                            <div className="mt-6 flex items-center justify-between">
+                            <div className="mt-6 flex items-center justify-end">
                                 <button type="submit" disabled={profileLoading || uploading} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50">
                                     {uploading ? t.uploading : (profileLoading ? t.updating : t.update)}
                                 </button>
-                                {profileMessage.text && <span className={`text-sm animate-fadeIn ${profileMessage.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{profileMessage.text}</span>}
                             </div>
                         </form>
                     ) : (
@@ -224,11 +213,11 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
                                     <input type="password" id="confirmPassword" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
                                 </div>
                             </div>
-                                <div className="mt-6 flex items-center justify-between">
+                            {passwordError && <p className="mt-4 text-xs text-red-500 text-center animate-shake">{passwordError}</p>}
+                            <div className="mt-6 flex items-center justify-end">
                                 <button type="submit" disabled={passwordLoading} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50">
                                     {passwordLoading ? t.updating : t.update}
                                 </button>
-                                {passwordMessage.text && <span className={`text-sm animate-fadeIn ${passwordMessage.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>{passwordMessage.text}</span>}
                             </div>
                         </form>
                     )}
