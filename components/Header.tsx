@@ -77,7 +77,7 @@ const UserMenu: React.FC<UserMenuProps> =
                         </button>
                         <div className="my-1 border-t border-black/10 dark:border-white/10"></div>
                         <button
-                            onClick={handleSignOut}
+                            onClick={() => { handleSignOut(); setIsOpen(false); }}
                             className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                         >
                             <LogOutIcon size={16} />
