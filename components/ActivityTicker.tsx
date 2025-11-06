@@ -115,8 +115,8 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, o
 
     const { data, error } = await supabase
       .from('tasks')
-      .select('status', { count: 'exact' })
-      .eq('user_id', session.user.id);
+      .select('status')
+      .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`);
       
     if (error) {
       console.error("Error fetching task counts:", error);
@@ -148,7 +148,7 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, o
         const { data, error } = await supabase
             .from('tasks')
             .select('*, profiles!user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
-            .eq('user_id', session.user.id)
+            .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`)
             .eq('status', activePreview)
             .order('priority', { ascending: false });
         if (error) {
