@@ -410,18 +410,18 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   return (
     <>
     <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto p-4 flex justify-center animate-fadeIn"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto p-2 sm:p-4 flex justify-center animate-fadeIn"
         onClick={onClose}
         role="dialog"
         aria-label={task && 'id' in task ? t.editTask : t.addNewTask}
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-2xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
         onClick={e => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col">
-            <div className="p-4 sm:p-6 pb-0 relative flex-shrink-0">
+            <div className="p-3 sm:p-6 pb-0 relative flex-shrink-0">
                 <button 
                     type="button"
                     onClick={onClose} 
@@ -432,17 +432,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 </button>
             </div>
             <div className="flex-grow overflow-y-auto">
-              <div className="p-4 sm:px-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 md:gap-y-0">
+              <div className="p-3 sm:px-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-0">
                 {/* Left Column: Task Details */}
                 <div className="space-y-4">
                      <div>
-                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-lg font-semibold" />
+                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] text-lg sm:text-xl font-semibold" />
                     </div>
                      <div>
                         <textarea id="description" placeholder={t.descriptionLabel} rows={4} value={description} onChange={e => setDescription(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
                        <div>
                             <label htmlFor="assignee" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.assignee}</label>
                             <AssigneeSelect value={assigneeId} options={allUsers} onChange={setAssigneeId} />
@@ -465,11 +465,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                     
                      <div>
                         <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.attachments}</label>
-                         <div className="flex items-stretch gap-3">
-                          <div className="flex-grow border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                         <div className="flex items-stretch gap-2 sm:gap-3">
+                          <div className="flex-grow border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
                             <p>{t.pasteOrDrop}</p>
                           </div>
-                          <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 flex flex-col items-center justify-center gap-1 px-3 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors">
+                          <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 flex flex-col items-center justify-center gap-1 px-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors">
                              <PaperclipIcon size={14} /> <span>{t.addAttachment}</span>
                           </button>
                         </div>
@@ -489,7 +489,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 {/* Right Column: Comments */}
                  <div className="flex flex-col mt-4 md:mt-0">
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.comments} ({combinedComments.length})</label>
-                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[120px]">
+                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[80px]">
                       {combinedComments.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
                            <ChatBubbleIcon size={32} className="mb-2 opacity-50"/>
