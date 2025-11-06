@@ -128,6 +128,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -147,31 +149,43 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   
   useEffect(() => {
     if (isOpen) {
-      if (task && 'id' in task) { // Editing existing task
-        setTitle(task.title || '');
-        setDescription(task.description || '');
-        setStatus(task.status || 'todo');
-        setPriority(task.priority || 'medium');
-        setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
-        setAttachments(task.task_attachments || []);
-        setAssigneeId(task.user_id || '');
-        fetchComments(task.id);
-      } else { // New task
-        setTitle('');
-        setDescription('');
-        setStatus('todo');
-        setPriority('medium');
-        const defaultDate = new Date();
-        defaultDate.setDate(defaultDate.getDate() + defaultDueDateOffset);
-        setDueDate(defaultDate.toISOString().split('T')[0]);
-        setAttachments([]);
-        setComments([]);
-        setAssigneeId(task?.user_id || currentUser?.id || '');
-      }
-      setNewFiles([]);
-      setNewComment('');
+        const currentTaskId = task && 'id' in task ? task.id : null;
+        // Only reset the form state if the task prop has changed.
+        // This prevents wiping user input on re-renders while the modal is open.
+        if (currentTaskId !== editingTaskId) {
+            if (task && 'id' in task) { // Editing existing task
+                setTitle(task.title || '');
+                setDescription(task.description || '');
+                setStatus(task.status || 'todo');
+                setPriority(task.priority || 'medium');
+                setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
+                setAttachments(task.task_attachments || []);
+                setAssigneeId(task.user_id || '');
+                fetchComments(task.id);
+            } else { // New task
+                setTitle('');
+                setDescription('');
+                setStatus('todo');
+                setPriority('medium');
+                const defaultDate = new Date();
+                defaultDate.setDate(defaultDate.getDate() + defaultDueDateOffset);
+                setDueDate(defaultDate.toISOString().split('T')[0]);
+                setAttachments([]);
+                setComments([]);
+                setAssigneeId(task?.user_id || currentUser?.id || '');
+            }
+            setNewFiles([]);
+            setNewComment('');
+            setEditingTaskId(currentTaskId);
+        }
+    } else {
+        // When the modal closes, reset the tracked ID so it re-initializes next time it opens.
+        if (editingTaskId !== undefined) {
+             setEditingTaskId(undefined);
+        }
     }
-  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments]);
+  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId]);
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {

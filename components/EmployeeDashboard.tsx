@@ -44,7 +44,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
         const { data, error } = await supabase
             .from('tasks')
             .select('*, profiles!user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
-            .eq('user_id', userId)
+            .or(`user_id.eq.${userId},created_by.eq.${userId}`)
             .order('priority', { ascending: false })
             .order('created_at', { ascending: true });
 
