@@ -91,6 +91,7 @@ const en: Translation = {
   confirmDeleteTask: "Confirm Deletion",
   deleteTaskConfirmationMessage: (taskTitle: string) => `Are you sure you want to delete the task "${taskTitle}"? This action cannot be undone.`,
   taskDeleted: "This task has been deleted.",
+  taskNotFound: "Task Not Found",
   boardView: "Board View",
   calendarView: "Calendar View",
   summaryView: "Summary View",
@@ -218,7 +219,7 @@ const en: Translation = {
   userGuide_s4_l2_text: "Use the settings icon to switch between light/dark themes and change the application's language.",
 
   // Filters
-  searchPlaceholder: "Search by title or description...",
+  searchPlaceholder: "Search by title, description, or ID...",
   filterByCreator: "Creator",
   allCreators: "All Creators",
   filterByPriority: "Priority",
@@ -316,6 +317,7 @@ const vi: Translation = {
   confirmDeleteTask: "Xác Nhận Xóa",
   deleteTaskConfirmationMessage: (taskTitle: string) => `Bạn có chắc muốn xóa công việc "${taskTitle}" không? Hành động này không thể hoàn tác.`,
   taskDeleted: "Công việc này đã bị xóa.",
+  taskNotFound: "Không tìm thấy công việc",
   boardView: "Xem dạng bảng",
   calendarView: "Xem dạng lịch",
   summaryView: "Xem tóm tắt",
@@ -443,7 +445,7 @@ const vi: Translation = {
   userGuide_s4_l2_text: "Sử dụng biểu tượng cài đặt để chuyển đổi giữa giao diện sáng/tối và thay đổi ngôn ngữ của ứng dụng.",
   
   // Filters
-  searchPlaceholder: "Tìm theo tiêu đề hoặc mô tả...",
+  searchPlaceholder: "Tìm theo tiêu đề, mô tả, hoặc ID...",
   filterByCreator: "Người giao",
   allCreators: "Tất cả người giao",
   filterByPriority: "Ưu tiên",
@@ -470,6 +472,7 @@ const th: Translation = {
   customRange: "ช่วงวันที่",
   copyTaskId: "คัดลอกรหัสงาน",
   taskDeleted: "งานนี้ถูกลบแล้ว",
+  taskNotFound: "ไม่พบงาน",
   saveTaskToComment: "บันทึกงานเพื่อเพิ่มความคิดเห็น",
 };
 

@@ -417,10 +417,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-4xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-4xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto md:max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <form onSubmit={handleSubmit} className="flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full">
             <div className="p-3 sm:p-6 pb-0 relative flex-shrink-0">
                 <button 
                     type="button"
@@ -489,7 +489,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 {/* Right Column: Comments */}
                  <div className="flex flex-col mt-4 md:mt-0">
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.comments} ({combinedComments.length})</label>
-                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[80px]">
+                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[80px] md:min-h-[400px]">
                       {combinedComments.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
                            <ChatBubbleIcon size={32} className="mb-2 opacity-50"/>

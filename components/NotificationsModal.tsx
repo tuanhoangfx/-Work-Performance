@@ -8,6 +8,7 @@ interface NotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onViewTask: (taskId: number) => void;
+  setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const timeAgo = (dateString: string, lang: string) => {
@@ -27,7 +28,7 @@ const timeAgo = (dateString: string, lang: string) => {
 };
 
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, onViewTask }) => {
+const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, onViewTask, setUnreadCount }) => {
     const { t, language } = useSettings();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,9 +37,15 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         if (isOpen) {
             const fetchNotifications = async () => {
                 setLoading(true);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    setLoading(false);
+                    return;
+                }
                 const { data, error } = await supabase
                     .from('notifications')
                     .select('*, profiles!actor_id(*)')
+                    .eq('user_id', session.user.id)
                     .order('created_at', { ascending: false })
                     .limit(20);
                 
@@ -54,6 +61,25 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         }
     }, [isOpen]);
 
+    const handleMarkAllAsRead = async () => {
+        const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+        if (unreadIds.length === 0) return;
+
+        setNotifications(current => current.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+        
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .in('id', unreadIds);
+
+        if (error) {
+            console.error("Error marking all as read:", error);
+            // Optionally revert UI change on error
+        }
+    };
+
+
     const formatNotificationMessage = (notification: Notification) => {
         const actorName = notification.profiles?.full_name || 'Someone';
         const taskTitle = notification.data?.task_title || 'a task';
@@ -67,6 +93,8 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                 return `New activity on task: ${taskTitle}`;
         }
     };
+
+    const hasUnread = notifications.some(n => !n.is_read);
 
     if (!isOpen) return null;
 
@@ -93,13 +121,13 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                     </button>
                 </div>
 
-                <div className="overflow-y-auto p-2">
+                <div className="overflow-y-auto p-2 flex-grow">
                     {loading ? (
                          <div className="flex justify-center items-center h-40">
                             <SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" />
                         </div>
                     ) : notifications.length === 0 ? (
-                        <div className="text-center text-gray-500 dark:text-gray-400 py-10 flex flex-col items-center">
+                        <div className="text-center text-gray-500 dark:text-gray-400 py-10 flex flex-col items-center h-full justify-center">
                             <BellIcon size={40} className="mb-4 text-gray-400 dark:text-gray-500" />
                             <p>{t.notifications_empty}</p>
                         </div>
@@ -136,6 +164,17 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                         </ul>
                     )}
                 </div>
+                 {notifications.length > 0 && (
+                    <div className="p-2 border-t border-gray-200 dark:border-gray-700 text-right">
+                        <button 
+                            onClick={handleMarkAllAsRead} 
+                            disabled={!hasUnread}
+                            className="text-xs font-semibold text-[var(--accent-color)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {t.mark_all_as_read}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

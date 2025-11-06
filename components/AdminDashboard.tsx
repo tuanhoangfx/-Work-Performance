@@ -155,12 +155,21 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
     
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {
-            const searchTermMatch = filters.searchTerm.toLowerCase() === '' ||
-                task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-                task.description?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+            const trimmedSearch = filters.searchTerm.trim();
+            const isNumericSearch = /^\d+$/.test(trimmedSearch);
+
+            let searchTermMatch = true;
+            if (trimmedSearch) {
+                 if (isNumericSearch) {
+                    searchTermMatch = task.id === parseInt(trimmedSearch, 10);
+                } else {
+                    const lowerCaseSearch = trimmedSearch.toLowerCase();
+                    searchTermMatch = task.title.toLowerCase().includes(lowerCaseSearch) ||
+                                      (task.description && task.description.toLowerCase().includes(lowerCaseSearch));
+                }
+            }
 
             const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
-
             const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
 
             return searchTermMatch && creatorMatch && priorityMatch;
@@ -286,12 +295,21 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
         return allTasks.filter(task => {
             const assigneeMatch = filterUserId === 'all' || task.user_id === filterUserId;
             
-            const searchTermMatch = filters.searchTerm.toLowerCase() === '' ||
-                task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-                task.description?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+            const trimmedSearch = filters.searchTerm.trim();
+            const isNumericSearch = /^\d+$/.test(trimmedSearch);
+
+            let searchTermMatch = true;
+            if (trimmedSearch) {
+                 if (isNumericSearch) {
+                    searchTermMatch = task.id === parseInt(trimmedSearch, 10);
+                } else {
+                    const lowerCaseSearch = trimmedSearch.toLowerCase();
+                    searchTermMatch = task.title.toLowerCase().includes(lowerCaseSearch) ||
+                                      (task.description && task.description.toLowerCase().includes(lowerCaseSearch));
+                }
+            }
 
             const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
-
             const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
 
             return assigneeMatch && searchTermMatch && creatorMatch && priorityMatch;

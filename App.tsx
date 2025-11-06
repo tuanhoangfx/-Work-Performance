@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -15,8 +16,8 @@ import { translations } from './translations';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile, Task, TimeLog } from './types';
-import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './components/Icons';
-import { SettingsContext, SettingsContextType, ColorScheme } from './context/SettingsContext';
+import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XIcon } from './components/Icons';
+import { SettingsContext, SettingsContextType, ColorScheme, useSettings } from './context/SettingsContext';
 
 const SupabaseNotConfigured: React.FC = () => (
   <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn bg-amber-100 dark:bg-amber-900/30 p-8 rounded-lg border border-amber-300 dark:border-amber-700">
@@ -33,6 +34,93 @@ const SupabaseNotConfigured: React.FC = () => (
     </p>
   </div>
 );
+
+// FIX: Define an interface for the action modal state to ensure type safety for optional properties.
+interface ActionModalState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm?: () => void;
+  confirmText?: string;
+  confirmButtonClass?: string;
+}
+
+const ActionModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm?: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  confirmButtonClass?: string;
+}> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText,
+  cancelText,
+  confirmButtonClass = 'bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)]',
+}) => {
+  const { t } = useSettings();
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    onConfirm?.();
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4 animate-fadeIn"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="action-modal-title"
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 ease-out animate-fadeInUp"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-6 relative">
+          <h2 id="action-modal-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">{message}</p>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 flex justify-end items-center space-x-3 rounded-b-2xl">
+          {onConfirm && (
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">
+              {cancelText || t.cancel}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onConfirm ? handleConfirm : onClose}
+            className={`px-4 py-2 text-sm font-semibold text-white ${confirmButtonClass} rounded-md shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none`}
+          >
+            {onConfirm ? (confirmText || t.save) : t.close}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'dark');
@@ -56,6 +144,13 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
   const [dataVersion, setDataVersion] = useState(0);
   const [activeTimer, setActiveTimer] = useState<TimeLog | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // FIX: Use the ActionModalState interface for robust type checking.
+  const [actionModal, setActionModal] = useState<ActionModalState>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
 
   const refreshData = useCallback(() => setDataVersion(v => v + 1), []);
   const t = translations[language];
@@ -145,7 +240,12 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
 
         if (error) {
             if (error.code === 'PGRST116') { // No rows found, task was likely deleted
-                alert(t.taskDeleted);
+                // FIX: Correctly set action modal state according to its defined type.
+                setActionModal({
+                  isOpen: true,
+                  title: t.taskNotFound,
+                  message: t.taskDeleted,
+                });
             } else {
                 throw error;
             }
@@ -155,7 +255,12 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         }
     } catch (error: any) {
         console.error("Error fetching task from notification:", error.message);
-        alert(`Could not load task: ${error.message}`);
+        // FIX: Correctly set action modal state according to its defined type.
+        setActionModal({
+            isOpen: true,
+            title: 'Error',
+            message: `Could not load task: ${error.message}`,
+        });
     }
   }, [handleOpenTaskModal, t]);
 
@@ -169,7 +274,8 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
 
     const userId = taskData.user_id; // Get assignee ID from submitted data
     if (!userId) {
-        alert("Assignee is required.");
+        // FIX: Correctly set action modal state according to its defined type.
+        setActionModal({ isOpen: true, title: 'Error', message: 'Assignee is required.' });
         return;
     }
     
@@ -259,89 +365,85 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
 
     } catch (error: any) {
         console.error("Error in save task process:", error.message);
-        alert(`Error: ${error.message}`);
+        // FIX: Correctly set action modal state according to its defined type.
+        setActionModal({ isOpen: true, title: 'Error', message: error.message });
     }
   };
 
-  const handleDeleteTask = async (task: Task) => {
-    if (window.confirm(t.deleteTaskConfirmationMessage(task.title))) {
-        try {
-            // Log before deleting
-            await logActivity('deleted_task', { task_id: task.id, task_title: task.title });
+  const executeDeleteTask = async (task: Task) => {
+      try {
+          await logActivity('deleted_task', { task_id: task.id, task_title: task.title });
 
-            // 1. Delete associated attachments from storage
-            if (task.task_attachments && task.task_attachments.length > 0) {
-                const filePaths = task.task_attachments.map(att => att.file_path);
-                const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
-                if (storageError) {
-                    // Log error but proceed, as we still want to delete the DB record
-                    console.error("Error deleting storage files:", storageError.message);
-                }
-            }
-            
-            // 2. Delete the task record.
-            const { data, error: deleteTaskError } = await supabase
-                .from('tasks')
-                .delete()
-                .eq('id', task.id)
-                .select();
+          if (task.task_attachments && task.task_attachments.length > 0) {
+              const filePaths = task.task_attachments.map(att => att.file_path);
+              const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
+              if (storageError) console.error("Error deleting storage files:", storageError.message);
+          }
+          
+          const { data, error: deleteTaskError } = await supabase.from('tasks').delete().eq('id', task.id).select();
+          if (deleteTaskError) throw deleteTaskError;
+          
+          if (!data || data.length === 0) {
+              // FIX: Correctly set action modal state according to its defined type.
+              setActionModal({ isOpen: true, title: 'Error', message: 'Could not delete task. You may not have permission.' });
+              return;
+          }
 
-            if (deleteTaskError) throw deleteTaskError;
-            
-            if (!data || data.length === 0) {
-                console.warn(`Task ${task.id} was not deleted. This might be due to RLS policies.`);
-                alert("Could not delete task. You may not have permission.");
-                return; // Stop execution if delete failed
-            }
-
-            // 3. If the active timer was for this task, clear it.
-            if (activeTimer?.task_id === task.id) {
-                setActiveTimer(null);
-            }
-            
-            refreshData();
-        } catch (error: any) {
-            console.error("Error deleting task:", error.message);
-            alert(`Error deleting task: ${error.message}`);
-        }
-    }
+          if (activeTimer?.task_id === task.id) setActiveTimer(null);
+          refreshData();
+      } catch (error: any) {
+          console.error("Error deleting task:", error.message);
+          // FIX: Correctly set action modal state according to its defined type.
+          setActionModal({ isOpen: true, title: 'Error', message: `Error deleting task: ${error.message}` });
+      }
+  };
+  
+  const handleDeleteTask = (task: Task) => {
+      setActionModal({
+        isOpen: true,
+        title: t.confirmDeleteTask,
+        message: t.deleteTaskConfirmationMessage(task.title),
+        onConfirm: () => executeDeleteTask(task),
+        confirmText: t.deleteTask,
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+      });
   };
 
-  const handleClearCancelledTasks = async (tasksToClear: Task[]) => {
+  const executeClearCancelledTasks = async (tasksToClear: Task[]) => {
+      try {
+          const taskIds = tasksToClear.map(t => t.id);
+          await logActivity('cleared_cancelled_tasks', { count: tasksToClear.length });
+
+          const allAttachments = tasksToClear.flatMap(t => t.task_attachments || []);
+          if (allAttachments.length > 0) {
+              const filePaths = allAttachments.map(att => att.file_path);
+              const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
+              if (storageError) console.error("Error deleting storage files during clear:", storageError.message);
+          }
+
+          const { error: deleteError } = await supabase.from('tasks').delete().in('id', taskIds);
+          if (deleteError) throw deleteError;
+
+          if (activeTimer && taskIds.includes(activeTimer.task_id)) setActiveTimer(null);
+          refreshData();
+
+      } catch (error: any) {
+          console.error("Error clearing cancelled tasks:", error.message);
+          // FIX: Correctly set action modal state according to its defined type.
+          setActionModal({ isOpen: true, title: 'Error', message: `Error clearing tasks: ${error.message}` });
+      }
+  };
+
+  const handleClearCancelledTasks = (tasksToClear: Task[]) => {
     if (tasksToClear.length === 0) return;
-    if (window.confirm(t.clearCancelledTasksConfirmation(tasksToClear.length))) {
-        try {
-            const taskIds = tasksToClear.map(t => t.id);
-
-            await logActivity('cleared_cancelled_tasks', { count: tasksToClear.length });
-
-            const allAttachments = tasksToClear.flatMap(t => t.task_attachments || []);
-            if (allAttachments.length > 0) {
-                const filePaths = allAttachments.map(att => att.file_path);
-                const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
-                if (storageError) {
-                    console.error("Error deleting storage files during clear:", storageError.message);
-                }
-            }
-
-            const { error: deleteError } = await supabase
-                .from('tasks')
-                .delete()
-                .in('id', taskIds);
-            
-            if (deleteError) throw deleteError;
-
-            if (activeTimer && taskIds.includes(activeTimer.task_id)) {
-                setActiveTimer(null);
-            }
-
-            refreshData();
-
-        } catch (error: any) {
-            console.error("Error clearing cancelled tasks:", error.message);
-            alert(`Error clearing tasks: ${error.message}`);
-        }
-    }
+     setActionModal({
+        isOpen: true,
+        title: t.clearCancelledTasksTitle,
+        message: t.clearCancelledTasksConfirmation(tasksToClear.length),
+        onConfirm: () => executeClearCancelledTasks(tasksToClear),
+        confirmText: t.deleteTask,
+        confirmButtonClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+      });
   };
     
   const handleUpdateStatus = async (task: Task, status: Task['status']) => {
@@ -372,7 +474,8 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         refreshData();
     } catch (error: any) {
         console.error("Error starting timer:", error.message);
-        alert(`Error: ${error.message}`);
+        // FIX: Correctly set action modal state according to its defined type.
+        setActionModal({ isOpen: true, title: 'Error', message: error.message });
     }
   };
 
@@ -390,24 +493,13 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
     } catch (error: any)
     {
         console.error("Error stopping timer:", error.message);
-        alert(`Error: ${error.message}`);
+        // FIX: Correctly set action modal state according to its defined type.
+        setActionModal({ isOpen: true, title: 'Error', message: error.message });
     }
   };
 
-  const handleOpenNotifications = async () => {
+  const handleOpenNotifications = () => {
     setIsNotificationsOpen(true);
-    if (session && unreadCount > 0) {
-        const { error } = await supabase
-            .from('notifications')
-            .update({ is_read: true })
-            .eq('user_id', session.user.id)
-            .eq('is_read', false);
-        if (error) {
-            console.error('Error marking notifications as read:', error);
-        } else {
-            setUnreadCount(0);
-        }
-    }
   };
 
   useEffect(() => {
@@ -575,7 +667,16 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
           currentUser={profile}
         />
         <ActivityLogModal isOpen={isActivityLogOpen} onClose={() => setIsActivityLogOpen(false)} />
-        <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onViewTask={handleViewTaskFromNotification} />
+        <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onViewTask={handleViewTaskFromNotification} setUnreadCount={setUnreadCount} />
+        <ActionModal
+          isOpen={actionModal.isOpen}
+          onClose={() => setActionModal(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={actionModal.onConfirm}
+          title={actionModal.title}
+          message={actionModal.message}
+          confirmText={actionModal.confirmText}
+          confirmButtonClass={actionModal.confirmButtonClass}
+        />
       </div>
     </SettingsContext.Provider>
   );

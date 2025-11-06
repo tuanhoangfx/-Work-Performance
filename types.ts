@@ -194,6 +194,7 @@ export type Translation = {
   confirmDeleteTask: string;
   deleteTaskConfirmationMessage: (taskTitle: string) => string;
   taskDeleted: string;
+  taskNotFound: string;
   boardView: string;
   calendarView: string;
   summaryView: string;
