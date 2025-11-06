@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, ClockIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 interface PerformanceSummaryProps {
   allTasks: Task[];
@@ -162,6 +162,7 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({ allTasks }) => 
       todo: filteredTasks.filter(t => t.status === 'todo').length,
       inprogress: filteredTasks.filter(t => t.status === 'inprogress').length,
       done: filteredTasks.filter(t => t.status === 'done').length,
+      cancelled: filteredTasks.filter(t => t.status === 'cancelled').length,
     };
   }, [filteredTasks]);
 
@@ -232,11 +233,12 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({ allTasks }) => 
                 )}
             </div>
           </div>
-          <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <StatCard icon={<ClipboardListIcon className="text-blue-500" />} label={t.totalTasks} value={stats.total} />
               <StatCard icon={<ClipboardListIcon className="text-orange-500" />} label={t.todo} value={stats.todo} />
-              <StatCard icon={<SpinnerIcon className="text-indigo-500"/>} label={t.inprogress} value={stats.inprogress} />
+              <StatCard icon={<SpinnerIcon className="text-indigo-500 animate-spin"/>} label={t.inprogress} value={stats.inprogress} />
               <StatCard icon={<CheckCircleIcon className="text-green-500" />} label={t.done} value={stats.done} />
+              <StatCard icon={<XCircleIcon className="text-gray-500" />} label={t.cancelled} value={stats.cancelled} />
               <StatCard icon={<ClockIcon className="text-purple-500" />} label={t.avgCompletionTime} value={avgCompletionTime} />
           </div>
       </div>

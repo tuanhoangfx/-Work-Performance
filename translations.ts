@@ -111,6 +111,7 @@ const en: Translation = {
   stopTimer: "Stop Timer",
   timerRunningOnAnotherTask: "Timer is running on another task",
   cancelTask: "Cancel Task",
+  copyTaskId: "Copy Task ID",
 
   // Task Modal
   taskTitleLabel: "Task Title",
@@ -124,6 +125,7 @@ const en: Translation = {
   post: "Post",
   posting: "Posting...",
   noCommentsYet: "No comments yet.",
+  saveTaskToComment: "Save the task to add comments.",
 
   // Admin Dashboard
   allEmployees: "All Employees",
@@ -207,6 +209,13 @@ const en: Translation = {
   userGuide_s4_l1_text: "Click your name to update your profile information, such as your full name and avatar.",
   userGuide_s4_l2_strong: "Appearance:",
   userGuide_s4_l2_text: "Use the settings icon to switch between light/dark themes and change the application's language.",
+
+  // Filters
+  searchPlaceholder: "Search by title or description...",
+  filterByCreator: "Creator",
+  allCreators: "All Creators",
+  filterByPriority: "Priority",
+  allPriorities: "All Priorities",
 };
 
 const vi: Translation = {
@@ -320,6 +329,7 @@ const vi: Translation = {
   stopTimer: "Dừng tính giờ",
   timerRunningOnAnotherTask: "Đang tính giờ cho công việc khác",
   cancelTask: "Hủy công việc",
+  copyTaskId: "Sao chép ID công việc",
 
   // Task Modal
   taskTitleLabel: "Tiêu đề công việc",
@@ -333,6 +343,7 @@ const vi: Translation = {
   post: "Đăng",
   posting: "Đang đăng...",
   noCommentsYet: "Chưa có bình luận nào.",
+  saveTaskToComment: "Lưu công việc để thêm bình luận.",
 
   // Admin Dashboard
   allEmployees: "Tất cả Nhân viên",
@@ -416,6 +427,13 @@ const vi: Translation = {
   userGuide_s4_l1_text: "Nhấp vào tên của bạn để cập nhật thông tin hồ sơ, chẳng hạn như họ tên và ảnh đại diện.",
   userGuide_s4_l2_strong: "Giao diện:",
   userGuide_s4_l2_text: "Sử dụng biểu tượng cài đặt để chuyển đổi giữa giao diện sáng/tối và thay đổi ngôn ngữ của ứng dụng.",
+  
+  // Filters
+  searchPlaceholder: "Tìm theo tiêu đề hoặc mô tả...",
+  filterByCreator: "Người giao",
+  allCreators: "Tất cả người giao",
+  filterByPriority: "Ưu tiên",
+  allPriorities: "Tất cả ưu tiên",
 };
 
 const th: Translation = {
@@ -433,8 +451,11 @@ const th: Translation = {
   todo: "ต้องทำ",
   inprogress: "กำลังทำ",
   done: "เสร็จแล้ว",
+  cancelled: "ยกเลิกแล้ว",
   customMonth: "เลือกเดือน",
   customRange: "ช่วงวันที่",
+  copyTaskId: "คัดลอกรหัสงาน",
+  saveTaskToComment: "บันทึกงานเพื่อเพิ่มความคิดเห็น",
 };
 
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { XIcon, SpinnerIcon, PaperclipIcon, DocumentTextIcon, TrashIcon, DownloadIcon, SendIcon, CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, ChevronDownIcon, ChevronUpIcon, MinusIcon } from './Icons';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { XIcon, SpinnerIcon, PaperclipIcon, DocumentTextIcon, TrashIcon, DownloadIcon, SendIcon, CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, ChevronDownIcon, ChatBubbleIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import { Task, TaskAttachment, Profile, TaskComment } from '../types';
 import { supabase } from '../lib/supabase';
@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Partial<Task>, newFiles: File[], deletedAttachmentIds: number[]) => Promise<void>;
+  onSave: (task: Partial<Task>, newFiles: File[], deletedAttachmentIds: number[], newComments: string[]) => Promise<void>;
   task: Task | Partial<Task> | null;
   allUsers: Profile[];
   currentUser: Profile | null;
@@ -112,6 +112,12 @@ const AttachmentPreviewModal: React.FC<{ attachment: any; onClose: () => void }>
     )
 }
 
+interface TempComment {
+    content: string;
+    profiles: Profile;
+    user_id: string;
+}
+
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser }) => {
   const { t, language, defaultDueDateOffset } = useSettings();
   const [title, setTitle] = useState('');
@@ -129,6 +135,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
+  const [tempNewComments, setTempNewComments] = useState<TempComment[]>([]);
+  const [isCommentInputVisible, setCommentInputVisible] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,8 +158,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   useEffect(() => {
     if (isOpen) {
         const currentTaskId = task && 'id' in task ? task.id : null;
-        // Only reset the form state if the task prop has changed.
-        // This prevents wiping user input on re-renders while the modal is open.
         if (currentTaskId !== editingTaskId) {
             if (task && 'id' in task) { // Editing existing task
                 setTitle(task.title || '');
@@ -162,6 +168,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setAttachments(task.task_attachments || []);
                 setAssigneeId(task.user_id || '');
                 fetchComments(task.id);
+                setTempNewComments([]);
             } else { // New task
                 setTitle('');
                 setDescription('');
@@ -172,14 +179,15 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setDueDate(defaultDate.toISOString().split('T')[0]);
                 setAttachments([]);
                 setComments([]);
+                setTempNewComments([]);
                 setAssigneeId(task?.user_id || currentUser?.id || '');
             }
             setNewFiles([]);
             setNewComment('');
             setEditingTaskId(currentTaskId);
+            setCommentInputVisible(false);
         }
     } else {
-        // When the modal closes, reset the tracked ID so it re-initializes next time it opens.
         if (editingTaskId !== undefined) {
              setEditingTaskId(undefined);
         }
@@ -227,24 +235,44 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   }
 
   const handlePostComment = async () => {
-    if (!newComment.trim() || !currentUser || !task || !('id' in task)) return;
-
-    setIsPostingComment(true);
-    const { error } = await supabase.from('task_comments').insert({
-      task_id: task.id,
-      user_id: currentUser.id,
-      content: newComment,
-    });
+    if (!newComment.trim() || !currentUser) return;
+    const isNewTask = !task || !('id' in task);
     
-    if (error) {
-      console.error('Error posting comment:', error);
-      alert(error.message);
+    if (isNewTask) {
+        setTempNewComments(prev => [...prev, {
+            content: newComment,
+            profiles: currentUser,
+            user_id: currentUser.id,
+        }]);
+        setNewComment('');
     } else {
-      setNewComment('');
-      fetchComments(task.id); // Refresh comments
+        setIsPostingComment(true);
+        const { error } = await supabase.from('task_comments').insert({
+          task_id: task.id,
+          user_id: currentUser.id,
+          content: newComment,
+        });
+        
+        if (error) {
+          console.error('Error posting comment:', error);
+          alert(error.message);
+        } else {
+          setNewComment('');
+          fetchComments(task.id); // Refresh comments
+        }
+        setIsPostingComment(false);
     }
-    setIsPostingComment(false);
   };
+  
+    const combinedComments = useMemo(() => [
+        ...comments,
+        ...tempNewComments.map((c, i) => ({
+            ...c,
+            id: `temp-${i}`,
+            created_at: new Date().toISOString(),
+            task_id: 0,
+        }))
+    ], [comments, tempNewComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,7 +296,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
       priority,
       due_date: dueDate || null,
       user_id: assigneeId,
-    }, newFiles, deletedAttachmentIds);
+    }, newFiles, deletedAttachmentIds, tempNewComments.map(c => c.content));
 
     setIsSaving(false);
   };
@@ -385,12 +413,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto p-4 flex justify-center animate-fadeIn"
         onClick={onClose}
         role="dialog"
-        aria-modal="true"
         aria-label={task && 'id' in task ? t.editTask : t.addNewTask}
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-4 sm:my-8"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
         onClick={e => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col">
@@ -409,15 +436,13 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 {/* Left Column: Task Details */}
                 <div className="space-y-4">
                      <div>
-                        <label htmlFor="title" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.taskTitleLabel}</label>
-                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
+                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-lg font-semibold" />
                     </div>
                      <div>
-                        <label htmlFor="description" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.descriptionLabel}</label>
-                        <textarea id="description" rows={3} value={description} onChange={e => setDescription(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
+                        <textarea id="description" placeholder={t.descriptionLabel} rows={4} value={description} onChange={e => setDescription(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                        <div>
                             <label htmlFor="assignee" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.assignee}</label>
                             <AssigneeSelect value={assigneeId} options={allUsers} onChange={setAssigneeId} />
@@ -440,9 +465,15 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                     
                      <div>
                         <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.attachments}</label>
-                         <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center text-sm text-gray-500 dark:text-gray-400">
-                          <p>{t.pasteOrDrop}</p>
+                         <div className="flex items-stretch gap-3">
+                          <div className="flex-grow border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                            <p>{t.pasteOrDrop}</p>
+                          </div>
+                          <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 flex flex-col items-center justify-center gap-1 px-3 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors">
+                             <PaperclipIcon size={14} /> <span>{t.addAttachment}</span>
+                          </button>
                         </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden"/>
                         <div className="space-y-2 mt-2">
                            {attachments.map(att => {
                                 const attachmentWithUrl = {...att, name: att.file_name, size: att.file_size, dataUrl: getPublicUrl(att.file_path)};
@@ -453,60 +484,72 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                                 return <AttachmentItem key={index} file={fileWithUrl} onRemove={() => handleRemoveNewFile(index)} isNew={true} onPreview={() => setPreviewAttachment(fileWithUrl)}/>;
                            })}
                         </div>
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-3 flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors">
-                           <PaperclipIcon size={14} /> {t.addAttachment}
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden"/>
                     </div>
                 </div>
                 {/* Right Column: Comments */}
-                {task && 'id' in task && (
                  <div className="flex flex-col mt-4 md:mt-0">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.comments} ({comments.length})</label>
-                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[200px]">
-                      {comments.length === 0 ? (
-                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-10">{t.noCommentsYet}</p>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.comments} ({combinedComments.length})</label>
+                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[120px]">
+                      {combinedComments.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
+                           <ChatBubbleIcon size={32} className="mb-2 opacity-50"/>
+                           <p className="text-sm font-medium">{t.noCommentsYet}</p>
+                        </div>
                       ) : (
-                        comments.map(comment => (
-                          <div key={comment.id} className="flex items-start gap-2.5">
-                            {comment.profiles?.avatar_url ? (
-                              <img src={comment.profiles.avatar_url} alt={comment.profiles.full_name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                  {(comment.profiles?.full_name || '?').charAt(0).toUpperCase()}
+                          combinedComments.map(comment => (
+                            <div key={comment.id} className="flex items-start gap-2.5">
+                              {comment.profiles?.avatar_url ? (
+                                <img src={comment.profiles.avatar_url} alt={comment.profiles.full_name || ''} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    {(comment.profiles?.full_name || '?').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="flex-grow">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{comment.profiles?.full_name}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(comment.created_at, language)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">{comment.content}</p>
                               </div>
-                            )}
-                            <div className="flex-grow">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{comment.profiles?.full_name}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(comment.created_at, language)}</span>
-                              </div>
-                              <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">{comment.content}</p>
                             </div>
-                          </div>
-                        ))
+                          ))
+                        )
+                      }
+                    </div>
+                    <div className="mt-2">
+                      {isCommentInputVisible ? (
+                        <div className="flex items-center gap-2">
+                          <textarea 
+                            value={newComment}
+                            onChange={e => setNewComment(e.target.value)}
+                            placeholder={t.addComment}
+                            rows={1}
+                            autoFocus
+                            disabled={isPostingComment}
+                            className="flex-grow block px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800"
+                          />
+                          <button 
+                              type="button" 
+                              onClick={handlePostComment}
+                              disabled={isPostingComment || !newComment.trim()}
+                              className="p-2 rounded-full text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] disabled:opacity-50 transition-opacity transform hover:scale-110"
+                              aria-label={t.post}
+                          >
+                              {isPostingComment ? <SpinnerIcon size={20} className="animate-spin" /> : <SendIcon size={20}/>}
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => setCommentInputVisible(true)}
+                          className="w-full text-left px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-500 dark:text-gray-400 hover:border-[var(--accent-color)] dark:hover:border-[var(--accent-color-dark)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm transition-colors"
+                        >
+                            {t.addComment}
+                        </button>
                       )}
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-                        <textarea 
-                          value={newComment}
-                          onChange={e => setNewComment(e.target.value)}
-                          placeholder={t.addComment}
-                          rows={1}
-                          className="flex-grow block px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm resize-none"
-                        />
-                         <button 
-                            type="button" 
-                            onClick={handlePostComment}
-                            disabled={isPostingComment || !newComment.trim()}
-                            className="p-2 rounded-full text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] disabled:opacity-50 transition-opacity transform hover:scale-110"
-                            aria-label={t.post}
-                         >
-                            {isPostingComment ? <SpinnerIcon size={20} className="animate-spin" /> : <SendIcon size={20}/>}
-                         </button>
-                    </div>
                 </div>
-                )}
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">

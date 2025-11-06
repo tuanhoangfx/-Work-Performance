@@ -137,7 +137,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
     setEditingTask(null);
   };
 
-  const handleSaveTask = async (taskData: Partial<Task>, newFiles: File[], deletedAttachmentIds: number[]) => {
+  const handleSaveTask = async (taskData: Partial<Task>, newFiles: File[], deletedAttachmentIds: number[], newComments: string[]) => {
     if (!session?.user) return;
 
     const userId = taskData.user_id; // Get assignee ID from submitted data
@@ -162,6 +162,18 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
 
         const taskId = savedTask.id;
         const taskTitle = savedTask.title;
+        
+        if (isNewTask && newComments.length > 0) {
+            const commentRecords = newComments.map(content => ({
+                task_id: taskId,
+                user_id: session.user.id,
+                content: content,
+            }));
+            const { error: insertCommentsError } = await supabase.from('task_comments').insert(commentRecords);
+            if (insertCommentsError) {
+                console.error("Error saving comments for new task:", insertCommentsError);
+            }
+        }
 
         if (isNewTask) {
             await logActivity('created_task', { task_id: taskId, task_title: taskTitle });
@@ -437,6 +449,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         onStartTimer={handleStartTimer}
         onStopTimer={handleStopTimer}
         activeTimer={activeTimer}
+        allUsers={allUsers}
       />;
   }
 

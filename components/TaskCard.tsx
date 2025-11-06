@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Task, Profile } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon, ChevronDownIcon, MinusIcon, ChevronUpIcon } from './Icons';
+import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon } from './Icons';
 
 interface TaskCardProps {
     task: Task;
@@ -67,6 +67,7 @@ const Avatar: React.FC<{ user: Profile, title: string }> = ({ user, title }) => 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator }) => {
     const { t, language } = useSettings();
     const [duration, setDuration] = useState(0);
+    const [copied, setCopied] = useState(false);
 
     const isDone = task.status === 'done';
     const isCancelled = task.status === 'cancelled';
@@ -98,14 +99,36 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
     today.setHours(0, 0, 0, 0);
     const isOverdue = !isArchived && task.due_date && new Date(task.due_date) < today;
     
+    const cardDynamicStyles = useMemo(() => {
+        const classes = [];
+        if (isArchived) {
+            classes.push('opacity-60');
+        }
+        
+        if (task.priority === 'high' && !isArchived) {
+            classes.push('animate-breathingGlowRed');
+        } else if (task.status === 'inprogress' && !isArchived) {
+            classes.push('border-sky-500');
+        }
+        
+        return classes.join(' ');
+    }, [task.priority, task.status, isArchived]);
+
     const handleDeleteClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onDelete(task);
     };
 
+    const handleCopyId = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(task.id.toString());
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    };
+
     return (
         <div 
-            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${isArchived ? 'opacity-60' : ''} ${task.status === 'inprogress' ? 'border-sky-500 animate-breathingGlow' : ''} ${isOverdue ? 'animate-breathingGlowRed' : ''}`}
+            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${cardDynamicStyles}`}
             draggable={!isArchived}
             onDragStart={() => onDragStart(task.id)}
         >
@@ -138,12 +161,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             <div className="flex flex-wrap justify-between items-center mt-2 gap-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                     <PriorityIndicator priority={task.priority} />
-                     {isOverdue && (
-                        <span className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300">
-                            <span>⏰</span>
-                            <span>{t.overdue}</span>
-                        </span>
-                    )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                     {task.task_comments && task.task_comments.length > 0 && (
@@ -159,11 +176,16 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                         </div>
                     )}
                     {task.due_date && (
-                        <div title={t.dueDateLabel} className="flex items-center gap-1">
+                        <div title={t.dueDateLabel} className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 dark:text-red-400 font-semibold' : ''}`}>
+                            {isOverdue && <span className="animate-gentle-shake">⏰</span>}
                             <CalendarIcon size={12} />
                             <span>{new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(new Date(task.due_date))}</span>
                         </div>
                     )}
+                    <div className="flex items-center gap-1 text-xs font-mono text-gray-600 dark:text-gray-300" title={t.totalTimeLogged}>
+                        <ClockIcon size={12} className={task.status === 'inprogress' ? 'text-sky-500' : ''}/>
+                        <span>{formatDuration(duration)}</span>
+                    </div>
                 </div>
             </div>
             
@@ -180,9 +202,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 text-xs font-mono text-gray-600 dark:text-gray-300" title={t.totalTimeLogged}>
-                        <ClockIcon size={14} className={task.status === 'inprogress' ? 'text-sky-500' : ''}/>
-                        <span>{formatDuration(duration)}</span>
+                     <div className="relative h-5 flex items-center">
+                        <button 
+                            onClick={handleCopyId}
+                            title={t.copyTaskId}
+                            className="font-mono text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--accent-color)] dark:hover:text-[var(--accent-color-dark)] transition-all"
+                        >
+                            #{task.id.toString().padStart(4, '0')}
+                        </button>
+                        {copied && (
+                            <div className="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-black rounded-md animate-fadeInUp whitespace-nowrap">
+                                Copied!
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -42,7 +42,6 @@ export interface Task {
   description: string | null;
   status: 'todo' | 'inprogress' | 'done' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
-  due_date: string | null;
   task_attachments?: TaskAttachment[];
   profiles?: Profile; // For showing assignee info
   creator?: Profile; // For showing creator info
@@ -198,6 +197,7 @@ export type Translation = {
   stopTimer: string;
   timerRunningOnAnotherTask: string;
   cancelTask: string;
+  copyTaskId: string;
 
   // Task Modal
   taskTitleLabel: string;
@@ -211,6 +211,7 @@ export type Translation = {
   post: string;
   posting: string;
   noCommentsYet: string;
+  saveTaskToComment: string;
 
   // Admin Dashboard
   allEmployees: string;
@@ -294,4 +295,11 @@ export type Translation = {
   userGuide_s4_l1_text: string;
   userGuide_s4_l2_strong: string;
   userGuide_s4_l2_text: string;
+
+  // Filters
+  searchPlaceholder: string;
+  filterByCreator: string;
+  allCreators: string;
+  filterByPriority: string;
+  allPriorities: string;
 };

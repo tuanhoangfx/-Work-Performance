@@ -7,6 +7,7 @@ import TaskCard from './TaskCard';
 import EditEmployeeModal from './EditEmployeeModal';
 import CalendarView from './CalendarView';
 import PerformanceSummary from './PerformanceSummary';
+import FilterBar, { Filters } from './FilterBar';
 
 interface AdminDashboardProps {
     dataVersion: number;
@@ -82,6 +83,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ dataVersion, refreshDat
                                                 onDeleteTask={onDeleteTask}
                                                 onUpdateStatus={onUpdateStatus}
                                                 onClearCancelledTasks={onClearCancelledTasks}
+                                                allUsers={allUsers}
                                             /> : null;
             default:
                 return null;
@@ -130,15 +132,17 @@ interface EmployeeTaskViewProps {
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
     onClearCancelledTasks: (tasks: Task[]) => void;
+    allUsers: Profile[];
 }
 
-const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
+const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all' });
 
     const fetchTasks = useCallback(async (userId: string) => {
         setLoading(true);
@@ -148,6 +152,20 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
     }, []);
 
     useEffect(() => { fetchTasks(employee.id); }, [employee.id, dataVersion, fetchTasks]);
+    
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(task => {
+            const searchTermMatch = filters.searchTerm.toLowerCase() === '' ||
+                task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+            const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
+
+            const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
+
+            return searchTermMatch && creatorMatch && priorityMatch;
+        });
+    }, [tasks, filters]);
 
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
@@ -160,11 +178,11 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
     };
 
     const { todo, inprogress, done, cancelled } = useMemo(() => ({
-        todo: tasks.filter(t => t.status === 'todo'),
-        inprogress: tasks.filter(t => t.status === 'inprogress'),
-        done: tasks.filter(t => t.status === 'done'),
-        cancelled: tasks.filter(t => t.status === 'cancelled'),
-    }), [tasks]);
+        todo: filteredTasks.filter(t => t.status === 'todo'),
+        inprogress: filteredTasks.filter(t => t.status === 'inprogress'),
+        done: filteredTasks.filter(t => t.status === 'done'),
+        cancelled: filteredTasks.filter(t => t.status === 'cancelled'),
+    }), [filteredTasks]);
 
     const renderBoard = () => {
         const statusConfig = {
@@ -182,6 +200,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
         return (
             <div className="space-y-6">
                 <PerformanceSummary allTasks={tasks} />
+                <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                     {columns.map(({ tasks, status }) => {
                         const { icon, borderColor, title } = statusConfig[status];
@@ -212,6 +231,9 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
                                 {tasks.map(task => (
                                     <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.profiles} creator={task.creator} />
                                 ))}
+                                {tasks.length === 0 && (
+                                    <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
+                                )}
                             </div>
                         </div>
                     )})}
@@ -248,6 +270,7 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
     const [filterUserId, setFilterUserId] = useState<string>('all');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all' });
 
     const fetchAllTasks = useCallback(async () => {
         setLoading(true);
@@ -260,9 +283,20 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
     useEffect(() => { fetchAllTasks(); }, [fetchAllTasks, dataVersion]);
 
     const filteredTasks = useMemo(() => {
-        if (filterUserId === 'all') return allTasks;
-        return allTasks.filter(task => task.user_id === filterUserId);
-    }, [allTasks, filterUserId]);
+        return allTasks.filter(task => {
+            const assigneeMatch = filterUserId === 'all' || task.user_id === filterUserId;
+            
+            const searchTermMatch = filters.searchTerm.toLowerCase() === '' ||
+                task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+            const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
+
+            const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
+
+            return assigneeMatch && searchTermMatch && creatorMatch && priorityMatch;
+        });
+    }, [allTasks, filterUserId, filters]);
 
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
@@ -296,7 +330,7 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
 
     return (
         <div className="w-full">
-            <div className="flex justify-between items-center mb-6 gap-4">
+            <div className="flex justify-between items-center mb-4 gap-4">
                 <h2 className="text-2xl font-bold">{t.allTasksBoard}</h2>
                 <select 
                     value={filterUserId} 
@@ -310,6 +344,7 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
             {loading ? <div className="flex justify-center p-10"><SpinnerIcon size={40} className="animate-spin text-[var(--accent-color)]" /></div> : (
                 <div className="space-y-6">
                     <PerformanceSummary allTasks={filteredTasks} />
+                    <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                         {columns.map(({ tasks, status }) => {
                             const { icon, borderColor, title } = statusConfig[status];
@@ -340,6 +375,9 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
                                     {tasks.map(task => (
                                         <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.profiles} creator={task.creator}/>
                                     ))}
+                                    {tasks.length === 0 && (
+                                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
+                                    )}
                                 </div>
                             </div>
                         )})}

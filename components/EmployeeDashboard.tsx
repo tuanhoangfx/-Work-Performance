@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { supabase } from '../lib/supabase';
-import type { Task, TimeLog } from '../types';
+import type { Task, TimeLog, Profile } from '../types';
 import type { Session } from '@supabase/supabase-js';
 import { SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './Icons';
 import TaskCard from './TaskCard';
 import CalendarView from './CalendarView';
 import PerformanceSummary from './PerformanceSummary';
+import FilterBar, { Filters } from './FilterBar';
 
 interface TaskDashboardProps {
     session: Session;
@@ -19,6 +20,7 @@ interface TaskDashboardProps {
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
+    allUsers: Profile[];
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -31,13 +33,14 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all' });
 
     const fetchTasks = useCallback(async (userId: string) => {
         setLoading(true);
@@ -62,6 +65,20 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
             fetchTasks(session.user.id);
         }
     }, [session, dataVersion, fetchTasks]);
+
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(task => {
+            const searchTermMatch = filters.searchTerm.toLowerCase() === '' ||
+                task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+            const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
+
+            const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
+
+            return searchTermMatch && creatorMatch && priorityMatch;
+        });
+    }, [tasks, filters]);
     
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
@@ -75,12 +92,12 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
 
     const { todo, inprogress, done, cancelled } = useMemo(() => {
         return {
-            todo: tasks.filter(t => t.status === 'todo'),
-            inprogress: tasks.filter(t => t.status === 'inprogress'),
-            done: tasks.filter(t => t.status === 'done'),
-            cancelled: tasks.filter(t => t.status === 'cancelled'),
+            todo: filteredTasks.filter(t => t.status === 'todo'),
+            inprogress: filteredTasks.filter(t => t.status === 'inprogress'),
+            done: filteredTasks.filter(t => t.status === 'done'),
+            cancelled: filteredTasks.filter(t => t.status === 'cancelled'),
         };
-    }, [tasks]);
+    }, [filteredTasks]);
     
     const renderBoard = () => {
         const statusConfig = {
@@ -99,6 +116,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
         return (
             <div className="space-y-6">
                  <PerformanceSummary allTasks={tasks} />
+                 <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                     {columns.map(({ tasks, status }) => {
                         const { icon, borderColor, title } = statusConfig[status];
@@ -138,6 +156,9 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
                                         creator={task.creator}
                                     />
                                 ))}
+                                {tasks.length === 0 && (
+                                    <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
+                                )}
                             </div>
                         </div>
                     )})}
