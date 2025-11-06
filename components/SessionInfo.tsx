@@ -1,14 +1,15 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlobeIcon, ClockIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 
 const SessionInfo: React.FC = () => {
   const { t } = useSettings();
   const [ip, setIp] = useState('...');
-  const [sessionTime, setSessionTime] = useState('00:00');
-  const [startTime] = useState(Date.now());
+  // State to hold the total active seconds
+  const [sessionTimeSeconds, setSessionTimeSeconds] = useState(0); 
+  
+  // Ref to hold the interval ID
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -29,14 +30,48 @@ const SessionInfo: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
-      const seconds = String(elapsed % 60).padStart(2, '0');
-      setSessionTime(`${minutes}:${seconds}`);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime]);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Page is hidden, clear the interval
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Page is visible, start the interval if it's not already running
+        if (!intervalRef.current) {
+          intervalRef.current = window.setInterval(() => {
+            setSessionTimeSeconds(prevSeconds => prevSeconds + 1);
+          }, 1000);
+        }
+      }
+    };
+
+    // Set the initial interval only if the page is visible
+    if (document.visibilityState === 'visible') {
+      intervalRef.current = window.setInterval(() => {
+        setSessionTimeSeconds(prevSeconds => prevSeconds + 1);
+      }, 1000);
+    }
+    
+    // Add event listener for visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
+
+  // Format the time for display
+  const formatSessionTime = (totalSeconds: number) => {
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
 
   return (
     <div className="flex items-center space-x-4 text-xs">
@@ -50,7 +85,7 @@ const SessionInfo: React.FC = () => {
         <ClockIcon size={16} className="text-[var(--accent-color)]" />
         {/* FIX: Correct translation key was added to types and translations files */}
         <span>{t.sessionTime}:</span>
-        <span className="font-mono">{sessionTime}</span>
+        <span className="font-mono">{formatSessionTime(sessionTimeSeconds)}</span>
       </div>
     </div>
   );
