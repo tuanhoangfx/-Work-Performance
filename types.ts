@@ -42,8 +42,9 @@ export interface Task {
   description: string | null;
   status: 'todo' | 'inprogress' | 'done' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
+  due_date: string | null;
   task_attachments?: TaskAttachment[];
-  profiles?: Profile; // For showing assignee info
+  assignee?: Profile; // For showing assignee info
   creator?: Profile; // For showing creator info
   task_time_logs?: TimeLog[];
   task_comments?: TaskComment[];
@@ -63,6 +64,22 @@ export interface ActivityLog {
     files?: string[];
   } | null;
   profiles: Profile; // for user info
+}
+
+export interface Notification {
+  id: number;
+  created_at: string;
+  user_id: string;
+  actor_id: string;
+  type: 'new_task_assigned' | 'new_comment';
+  data: {
+    task_id: number;
+    task_title: string;
+    assigner_name?: string;
+    commenter_name?: string;
+  };
+  is_read: boolean;
+  profiles: Profile; // For actor info
 }
 
 
@@ -99,6 +116,12 @@ export type Translation = {
   adminDashboard: string;
   employeeDashboard: string;
   activityLog: string;
+  notifications: string;
+  notifications_new_task: (assigner: string, task: string) => string;
+  notifications_new_comment: (commenter: string, task: string) => string;
+  notifications_empty: string;
+  mark_all_as_read: string;
+  view_task: string;
   
   // ThemeController
   toggleThemeAria: string;
@@ -170,6 +193,7 @@ export type Translation = {
   deleteTask: string;
   confirmDeleteTask: string;
   deleteTaskConfirmationMessage: (taskTitle: string) => string;
+  taskDeleted: string;
   boardView: string;
   calendarView: string;
   summaryView: string;

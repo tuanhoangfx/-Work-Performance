@@ -77,7 +77,7 @@ const TaskPreviewPopover: React.FC<TaskPreviewPopoverProps> = ({ isOpen, onClose
                                     onDelete={onDeleteTask} 
                                     onUpdateStatus={onUpdateStatus} 
                                     onDragStart={() => {}}
-                                    assignee={task.profiles}
+                                    assignee={task.assignee}
                                     creator={task.creator}
                                 />
                             ))}
@@ -147,7 +147,7 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, dataVersion, o
         setIsLoadingPreview(true);
         const { data, error } = await supabase
             .from('tasks')
-            .select('*, profiles!user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
             .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`)
             .eq('status', activePreview)
             .order('priority', { ascending: false });

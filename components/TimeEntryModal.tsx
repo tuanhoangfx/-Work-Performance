@@ -417,7 +417,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-2xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-4xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto"
         onClick={e => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col">

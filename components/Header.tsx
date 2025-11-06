@@ -20,6 +20,8 @@ interface HeaderProps {
   onDeleteTask: (task: Task) => void;
   onUpdateStatus: (task: Task, status: Task['status']) => void;
   onOpenActivityLog: () => void;
+  onOpenNotifications: () => void;
+  unreadCount: number;
 }
 
 interface UserMenuProps {
@@ -114,7 +116,7 @@ const AdminViewToggle: React.FC<{isAdminView: boolean, setIsAdminView: (isAdminV
 };
 
 
-const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog }) => {
+const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, dataVersion, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
   const { t } = useSettings();
 
   return (
@@ -129,6 +131,8 @@ const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSign
         onDeleteTask={onDeleteTask}
         onUpdateStatus={onUpdateStatus}
         onOpenActivityLog={onOpenActivityLog}
+        onOpenNotifications={onOpenNotifications}
+        unreadCount={unreadCount}
       />
       <div className="container mx-auto px-4 py-2 md:py-0 md:h-16 flex flex-wrap items-center">
         

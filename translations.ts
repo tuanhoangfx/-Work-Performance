@@ -13,6 +13,12 @@ const en: Translation = {
   adminDashboard: "Manager Dashboard",
   employeeDashboard: "My Tasks",
   activityLog: "Activity Log",
+  notifications: "Notifications",
+  notifications_new_task: (assigner, task) => `<strong>${assigner}</strong> assigned you a new task: <strong>${task}</strong>.`,
+  notifications_new_comment: (commenter, task) => `<strong>${commenter}</strong> commented on your task: <strong>${task}</strong>.`,
+  notifications_empty: "You have no new notifications.",
+  mark_all_as_read: "Mark all as read",
+  view_task: "View Task",
 
   // ThemeToggle & Controller
   toggleThemeAria: "Toggle theme",
@@ -84,6 +90,7 @@ const en: Translation = {
   deleteTask: "Delete Task",
   confirmDeleteTask: "Confirm Deletion",
   deleteTaskConfirmationMessage: (taskTitle: string) => `Are you sure you want to delete the task "${taskTitle}"? This action cannot be undone.`,
+  taskDeleted: "This task has been deleted.",
   boardView: "Board View",
   calendarView: "Calendar View",
   summaryView: "Summary View",
@@ -231,6 +238,12 @@ const vi: Translation = {
   adminDashboard: "Trang Quản lý",
   employeeDashboard: "Việc của tôi",
   activityLog: "Nhật ký hoạt động",
+  notifications: "Thông báo",
+  notifications_new_task: (assigner, task) => `<strong>${assigner}</strong> đã giao cho bạn công việc mới: <strong>${task}</strong>.`,
+  notifications_new_comment: (commenter, task) => `<strong>${commenter}</strong> đã bình luận về công việc của bạn: <strong>${task}</strong>.`,
+  notifications_empty: "Bạn không có thông báo nào.",
+  mark_all_as_read: "Đánh dấu tất cả là đã đọc",
+  view_task: "Xem công việc",
 
   // ThemeToggle & Controller
   toggleThemeAria: "Chuyển đổi giao diện",
@@ -302,6 +315,7 @@ const vi: Translation = {
   deleteTask: "Xóa Công Việc",
   confirmDeleteTask: "Xác Nhận Xóa",
   deleteTaskConfirmationMessage: (taskTitle: string) => `Bạn có chắc muốn xóa công việc "${taskTitle}" không? Hành động này không thể hoàn tác.`,
+  taskDeleted: "Công việc này đã bị xóa.",
   boardView: "Xem dạng bảng",
   calendarView: "Xem dạng lịch",
   summaryView: "Xem tóm tắt",
@@ -455,6 +469,7 @@ const th: Translation = {
   customMonth: "เลือกเดือน",
   customRange: "ช่วงวันที่",
   copyTaskId: "คัดลอกรหัสงาน",
+  taskDeleted: "งานนี้ถูกลบแล้ว",
   saveTaskToComment: "บันทึกงานเพื่อเพิ่มความคิดเห็น",
 };
 

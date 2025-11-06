@@ -146,7 +146,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
 
     const fetchTasks = useCallback(async (userId: string) => {
         setLoading(true);
-        const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('user_id', userId).order('priority', { ascending: false }).order('created_at', { ascending: true });
+        const { data, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('user_id', userId).order('priority', { ascending: false }).order('created_at', { ascending: true });
         if (error) console.error("Error fetching tasks:", error); else setTasks((data as Task[]) || []);
         setLoading(false);
     }, []);
@@ -229,7 +229,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
                             </h3>
                             <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
                                 {tasks.map(task => (
-                                    <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.profiles} creator={task.creator} />
+                                    <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.assignee} creator={task.creator} />
                                 ))}
                                 {tasks.length === 0 && (
                                     <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
@@ -274,7 +274,7 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
 
     const fetchAllTasks = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
+        const { data, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
         if (error) console.error("Error fetching all tasks:", error);
         else setAllTasks(data as Task[] || []);
         setLoading(false);
@@ -373,7 +373,7 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
                                 </h3>
                                 <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
                                     {tasks.map(task => (
-                                        <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.profiles} creator={task.creator}/>
+                                        <TaskCard key={task.id} task={task} onEdit={onEditTask} onDelete={onDeleteTask} onUpdateStatus={onUpdateStatus} onDragStart={setDraggedTaskId} assignee={task.assignee} creator={task.creator}/>
                                     ))}
                                     {tasks.length === 0 && (
                                         <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>

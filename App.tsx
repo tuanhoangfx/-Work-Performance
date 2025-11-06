@@ -9,6 +9,7 @@ import EmployeeDashboard from './components/EmployeeDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import TaskModal from './components/TimeEntryModal';
 import ActivityLogModal from './components/ActivityLogModal';
+import NotificationsModal from './components/NotificationsModal';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { translations } from './translations';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -44,6 +45,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
   const [isUserGuideOpen, setIsUserGuideOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -53,6 +55,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
   const [isAdminView, setIsAdminView] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [activeTimer, setActiveTimer] = useState<TimeLog | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshData = useCallback(() => setDataVersion(v => v + 1), []);
   const t = translations[language];
@@ -131,6 +134,30 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
     setEditingTask(task as Task | null);
     setIsTaskModalOpen(true);
   }, []);
+  
+  const handleViewTaskFromNotification = useCallback(async (taskId: number) => {
+    try {
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+            .eq('id', taskId)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // No rows found, task was likely deleted
+                alert(t.taskDeleted);
+            } else {
+                throw error;
+            }
+        } else if (data) {
+            setIsNotificationsOpen(false); // Close notifications modal
+            handleOpenTaskModal(data as Task);
+        }
+    } catch (error: any) {
+        console.error("Error fetching task from notification:", error.message);
+        alert(`Could not load task: ${error.message}`);
+    }
+  }, [handleOpenTaskModal, t]);
 
   const handleCloseTaskModal = () => {
     setIsTaskModalOpen(false);
@@ -367,19 +394,62 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
     }
   };
 
+  const handleOpenNotifications = async () => {
+    setIsNotificationsOpen(true);
+    if (session && unreadCount > 0) {
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', session.user.id)
+            .eq('is_read', false);
+        if (error) {
+            console.error('Error marking notifications as read:', error);
+        } else {
+            setUnreadCount(0);
+        }
+    }
+  };
+
   useEffect(() => {
-    if (session) {
-      getProfile(session.user);
-      getAllUsers();
+    if (session?.user) {
+        getProfile(session.user);
+        getAllUsers();
+
+        const fetchUnreadCount = async () => {
+            const { count, error } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', session.user.id)
+                .eq('is_read', false);
+            if (error) console.error('Error fetching unread count:', error);
+            else setUnreadCount(count || 0);
+        };
+        fetchUnreadCount();
+
+        const channel = supabase.channel(`notifications:${session.user.id}`)
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'notifications',
+                filter: `user_id=eq.${session.user.id}`
+            }, 
+            payload => {
+                setUnreadCount(currentCount => currentCount + 1);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    } else {
+        setProfile(null);
+        setLoadingProfile(false);
+        setIsAdminView(false);
+        setAllUsers([]);
+        setActiveTimer(null);
+        setUnreadCount(0);
     }
-    else {
-      setProfile(null);
-      setLoadingProfile(false);
-      setIsAdminView(false);
-      setAllUsers([]);
-      setActiveTimer(null);
-    }
-  }, [session, getProfile, getAllUsers]);
+}, [session, getProfile, getAllUsers]);
   
   const handleSignOut = async () => {
     if (!isSupabaseConfigured) return;
@@ -470,6 +540,8 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
           onDeleteTask={handleDeleteTask}
           onUpdateStatus={handleUpdateStatus}
           onOpenActivityLog={() => setIsActivityLogOpen(true)}
+          onOpenNotifications={handleOpenNotifications}
+          unreadCount={unreadCount}
         />
 
         <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
@@ -503,6 +575,7 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
           currentUser={profile}
         />
         <ActivityLogModal isOpen={isActivityLogOpen} onClose={() => setIsActivityLogOpen(false)} />
+        <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} onViewTask={handleViewTaskFromNotification} />
       </div>
     </SettingsContext.Provider>
   );
