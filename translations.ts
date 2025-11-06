@@ -143,8 +143,6 @@ const en: Translation = {
   allTasksBoard: "All Tasks Board",
   customMonth: "By Month",
   customRange: "Date Range",
-  clearCancelledTasks: "Clear All",
-  clearCancelledTasksConfirmation: (count: number) => `Are you sure you want to permanently delete all ${count} cancelled tasks?`,
 
   // Generic Actions
   close: "Close",
@@ -173,13 +171,15 @@ const en: Translation = {
   log_status_changed: (user, task, from, to) => `${user} changed status of ${task} from ${from} to ${to}.`,
   log_added_attachments: (user, count, task) => `${user} added ${count} attachment(s) to ${task}.`,
   log_removed_attachments: (user, count, task) => `${user} removed ${count} attachment(s) from ${task}.`,
-  log_cleared_cancelled_tasks: (user, count) => `${user} cleared ${count} cancelled task(s).`,
+  log_cleared_cancelled_tasks: (user, count) => `${user} cleared ${count} cancelled tasks.`,
   a_user: "A user",
   a_task: "a task",
 
   // Settings
   defaultDueDateIn: "Default due date in",
   days: "days",
+  clearCancelledTasksTitle: "Clear all cancelled tasks",
+  clearCancelledTasksConfirmation: (count) => `Are you sure you want to permanently delete ${count} cancelled tasks? This cannot be undone.`,
 
   // User Guide
   userGuide_s1_title: "Getting Started",
@@ -352,8 +352,6 @@ const vi: Translation = {
   allTasksBoard: "Bảng công việc chung",
   customMonth: "Theo Tháng",
   customRange: "Khoảng Ngày",
-  clearCancelledTasks: "Dọn dẹp",
-  clearCancelledTasksConfirmation: (count: number) => `Bạn có chắc muốn xóa vĩnh viễn tất cả ${count} công việc đã hủy không?`,
 
   // Generic Actions
   close: "Đóng",
@@ -389,6 +387,8 @@ const vi: Translation = {
   // Settings
   defaultDueDateIn: "Ngày hết hạn mặc định sau",
   days: "ngày",
+  clearCancelledTasksTitle: "Dọn dẹp các công việc đã hủy",
+  clearCancelledTasksConfirmation: (count) => `Bạn có chắc muốn xóa vĩnh viễn ${count} công việc đã hủy không? Hành động này không thể hoàn tác.`,
 
   // User Guide
   userGuide_s1_title: "Bắt đầu",

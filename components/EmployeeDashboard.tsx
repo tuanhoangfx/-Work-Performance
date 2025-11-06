@@ -14,11 +14,11 @@ interface TaskDashboardProps {
     refreshData: () => void;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
+    onClearCancelledTasks: (tasks: Task[]) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
-    onClearCancelledTasks: (tasks: Task[]) => void;
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -118,8 +118,8 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, dataVersion,
                                 {status === 'cancelled' && tasks.length > 0 && (
                                     <button 
                                         onClick={() => onClearCancelledTasks(tasks)}
-                                        className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                        title={t.clearCancelledTasks}
+                                        className="p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                        title={t.clearCancelledTasksTitle}
                                     >
                                         <TrashIcon size={14} />
                                     </button>

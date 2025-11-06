@@ -14,11 +14,11 @@ interface AdminDashboardProps {
     allUsers: Profile[];
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
+    onClearCancelledTasks: (tasks: Task[]) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
-    onClearCancelledTasks: (tasks: Task[]) => void;
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -201,8 +201,8 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, dataVersi
                                 {status === 'cancelled' && tasks.length > 0 && (
                                     <button 
                                         onClick={() => onClearCancelledTasks(tasks)}
-                                        className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                        title={t.clearCancelledTasks}
+                                        className="p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                        title={t.clearCancelledTasksTitle}
                                     >
                                         <TrashIcon size={14} />
                                     </button>
@@ -322,15 +322,15 @@ const AllTasksView: React.FC<Omit<AdminDashboardProps, 'refreshData' | 'onStartT
                                 className={`bg-white dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
                             >
                                 <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
-                                    <div className="flex items-center gap-2">
+                                     <div className="flex items-center gap-2">
                                         {icon}
                                         <span>{title} ({tasks.length})</span>
                                     </div>
                                     {status === 'cancelled' && tasks.length > 0 && (
                                         <button 
                                             onClick={() => onClearCancelledTasks(tasks)}
-                                            className="p-1.5 rounded-full text-gray-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                            title={t.clearCancelledTasks}
+                                            className="p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                            title={t.clearCancelledTasksTitle}
                                         >
                                             <TrashIcon size={14} />
                                         </button>

@@ -230,8 +230,6 @@ export type Translation = {
   allTasksBoard: string;
   customMonth: string;
   customRange: string;
-  clearCancelledTasks: string;
-  clearCancelledTasksConfirmation: (count: number) => string;
   
   // Generic Actions
   close: string;
@@ -267,6 +265,8 @@ export type Translation = {
   // Settings
   defaultDueDateIn: string;
   days: string;
+  clearCancelledTasksTitle: string;
+  clearCancelledTasksConfirmation: (count: number) => string;
 
   // User Guide
   userGuide_s1_title: string;

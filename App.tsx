@@ -267,6 +267,43 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         }
     }
   };
+
+  const handleClearCancelledTasks = async (tasksToClear: Task[]) => {
+    if (tasksToClear.length === 0) return;
+    if (window.confirm(t.clearCancelledTasksConfirmation(tasksToClear.length))) {
+        try {
+            const taskIds = tasksToClear.map(t => t.id);
+
+            await logActivity('cleared_cancelled_tasks', { count: tasksToClear.length });
+
+            const allAttachments = tasksToClear.flatMap(t => t.task_attachments || []);
+            if (allAttachments.length > 0) {
+                const filePaths = allAttachments.map(att => att.file_path);
+                const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
+                if (storageError) {
+                    console.error("Error deleting storage files during clear:", storageError.message);
+                }
+            }
+
+            const { error: deleteError } = await supabase
+                .from('tasks')
+                .delete()
+                .in('id', taskIds);
+            
+            if (deleteError) throw deleteError;
+
+            if (activeTimer && taskIds.includes(activeTimer.task_id)) {
+                setActiveTimer(null);
+            }
+
+            refreshData();
+
+        } catch (error: any) {
+            console.error("Error clearing cancelled tasks:", error.message);
+            alert(`Error clearing tasks: ${error.message}`);
+        }
+    }
+  };
     
   const handleUpdateStatus = async (task: Task, status: Task['status']) => {
       const { error } = await supabase.from('tasks').update({ status }).eq('id', task.id);
@@ -317,41 +354,6 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         alert(`Error: ${error.message}`);
     }
   };
-
-  const handleClearCancelledTasks = async (tasksToClear: Task[]) => {
-    if (tasksToClear.length === 0) {
-      return;
-    }
-    if (window.confirm(t.clearCancelledTasksConfirmation(tasksToClear.length))) {
-      try {
-        const taskIds = tasksToClear.map(t => t.id);
-
-        await logActivity('cleared_cancelled_tasks', { count: taskIds.length });
-
-        const attachmentsToDelete = tasksToClear.flatMap(t => t.task_attachments || []);
-        if (attachmentsToDelete.length > 0) {
-            const filePaths = attachmentsToDelete.map(att => att.file_path);
-            const { error: storageError } = await supabase.storage.from('task-attachments').remove(filePaths);
-            if (storageError) {
-                console.error("Error deleting storage files for cancelled tasks:", storageError.message);
-            }
-        }
-
-        const { error } = await supabase.from('tasks').delete().in('id', taskIds);
-        if (error) throw error;
-
-        if (activeTimer && taskIds.includes(activeTimer.task_id)) {
-            setActiveTimer(null);
-        }
-
-        refreshData();
-      } catch (error: any) {
-        console.error("Error clearing cancelled tasks:", error.message);
-        alert(`Error: ${error.message}`);
-      }
-    }
-  };
-
 
   useEffect(() => {
     if (session) {
@@ -416,11 +418,11 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
             allUsers={allUsers}
             onEditTask={handleOpenTaskModal}
             onDeleteTask={handleDeleteTask}
+            onClearCancelledTasks={handleClearCancelledTasks}
             onUpdateStatus={handleUpdateStatus}
             onStartTimer={handleStartTimer}
             onStopTimer={handleStopTimer}
             activeTimer={activeTimer}
-            onClearCancelledTasks={handleClearCancelledTasks}
           />;
       }
       
@@ -430,11 +432,11 @@ const AppContainer: React.FC<{ session: Session | null }> = ({ session }) => {
         refreshData={refreshData}
         onEditTask={handleOpenTaskModal}
         onDeleteTask={handleDeleteTask}
+        onClearCancelledTasks={handleClearCancelledTasks}
         onUpdateStatus={handleUpdateStatus}
         onStartTimer={handleStartTimer}
         onStopTimer={handleStopTimer}
         activeTimer={activeTimer}
-        onClearCancelledTasks={handleClearCancelledTasks}
       />;
   }
 
