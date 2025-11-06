@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Profile } from '../types';
+import { ChevronDownIcon, UsersIcon } from './Icons';
 
 export interface Filters {
   searchTerm: string;
@@ -14,19 +15,91 @@ interface FilterBarProps {
   allUsers: Profile[];
 }
 
+interface FilterOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+const FilterSelect: React.FC<{
+  defaultIcon: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: FilterOption[];
+  widthClass?: string;
+}> = ({ defaultIcon, value, onChange, options, widthClass = 'sm:w-48' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (ref.current && !ref.current.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className={`relative ${widthClass} w-full`} ref={ref}>
+      <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <span className="text-gray-500 flex-shrink-0">{selectedOption?.icon || defaultIcon}</span>
+          <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{selectedOption.label}</span>
+        </div>
+        <ChevronDownIcon size={16} className="text-gray-400 flex-shrink-0" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-60 overflow-y-auto">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => { onChange(option.value); setIsOpen(false); }}
+              className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20"
+            >
+              <span className="flex-shrink-0 w-5 flex items-center justify-center">{option.icon || defaultIcon}</span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Avatar: React.FC<{ user: Profile }> = ({ user }) => {
+    return user.avatar_url ? (
+        <img src={user.avatar_url} alt={user.full_name || ''} className="w-5 h-5 rounded-full object-cover" />
+    ) : (
+        <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold text-[10px]">
+            {(user.full_name || '?').charAt(0).toUpperCase()}
+        </div>
+    );
+};
+
+
 const FilterBar: React.FC<FilterBarProps> = ({ filters, onFilterChange, allUsers }) => {
   const { t } = useSettings();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     onFilterChange({ ...filters, [name]: value });
   };
 
-  const priorityOptions: { value: Filters['priority'], label: string }[] = [
+  const priorityOptions: FilterOption[] = [
     { value: 'all', label: t.allPriorities },
-    { value: 'low', label: t.low },
-    { value: 'medium', label: t.medium },
-    { value: 'high', label: t.high },
+    { value: 'low', label: t.low, icon: <span className="text-base">💤</span> },
+    { value: 'medium', label: t.medium, icon: <span className="text-base">⚡</span> },
+    { value: 'high', label: t.high, icon: <span className="text-base">🚨</span> },
+  ];
+  
+  const creatorOptions: FilterOption[] = [
+      { value: 'all', label: t.allCreators },
+      ...allUsers.map(user => ({ value: user.id, label: user.full_name, icon: <Avatar user={user} /> }))
   ];
 
   return (
@@ -42,33 +115,20 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFilterChange, allUsers
         />
       </div>
       <div className="flex-shrink-0">
-        <label htmlFor="creatorId" className="sr-only">{t.filterByCreator}</label>
-        <select
-          id="creatorId"
-          name="creatorId"
-          value={filters.creatorId}
-          onChange={handleInputChange}
-          className="w-full sm:w-auto px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-        >
-          <option value="all">{t.allCreators}</option>
-          {allUsers.map(user => (
-            <option key={user.id} value={user.id}>{user.full_name}</option>
-          ))}
-        </select>
+        <FilterSelect
+            defaultIcon={<UsersIcon size={16}/>}
+            value={filters.creatorId}
+            onChange={(value) => onFilterChange({ ...filters, creatorId: value })}
+            options={creatorOptions}
+        />
       </div>
       <div className="flex-shrink-0">
-        <label htmlFor="priority" className="sr-only">{t.filterByPriority}</label>
-        <select
-          id="priority"
-          name="priority"
-          value={filters.priority}
-          onChange={handleInputChange}
-          className="w-full sm:w-auto px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-        >
-          {priorityOptions.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+         <FilterSelect
+            defaultIcon={<span className="text-gray-500">★</span>}
+            value={filters.priority}
+            onChange={(value) => onFilterChange({ ...filters, priority: value as Filters['priority'] })}
+            options={priorityOptions}
+        />
       </div>
     </div>
   );

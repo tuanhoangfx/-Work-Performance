@@ -22,7 +22,7 @@ const formatDuration = (ms: number) => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-const formatExactTime = (dateString: string, lang: string) => {
+const formatExactTime = (dateString: string, lang: string, timezone: string) => {
     const date = new Date(dateString);
     const options: Intl.DateTimeFormatOptions = {
         hour: '2-digit',
@@ -30,6 +30,7 @@ const formatExactTime = (dateString: string, lang: string) => {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        timeZone: timezone,
     };
     return new Intl.DateTimeFormat(lang, options).format(date);
 };
@@ -65,13 +66,27 @@ const Avatar: React.FC<{ user: Profile, title: string }> = ({ user, title }) => 
 );
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator }) => {
-    const { t, language } = useSettings();
+    const { t, language, timezone } = useSettings();
     const [duration, setDuration] = useState(0);
     const [copied, setCopied] = useState(false);
 
     const isDone = task.status === 'done';
     const isCancelled = task.status === 'cancelled';
     const isArchived = isDone || isCancelled;
+
+    const isOverdue = useMemo(() => {
+        if (isArchived || !task.due_date) return false;
+        // Get today's date string in 'YYYY-MM-DD' format for the user's selected timezone
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const todayInUserTz = formatter.format(new Date());
+        // Compare date strings. This is reliable for 'YYYY-MM-DD' format.
+        return task.due_date < todayInUserTz;
+    }, [task.due_date, isArchived, timezone]);
 
     useEffect(() => {
         let interval: number | undefined;
@@ -94,10 +109,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             if (interval) clearInterval(interval);
         };
     }, [task.created_at, task.updated_at, task.status, isArchived]);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isOverdue = !isArchived && task.due_date && new Date(task.due_date) < today;
     
     const cardDynamicStyles = useMemo(() => {
         const classes = [];
@@ -198,7 +209,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                         </>
                     )}
                     {assignee && <Avatar user={assignee} title={`${t.assignee}: ${assignee.full_name}`} />}
-                    <span className="ml-1 tabular-nums">{formatExactTime(task.created_at, language)}</span>
+                    <span className="ml-1 tabular-nums">{formatExactTime(task.created_at, language, timezone)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">

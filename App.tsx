@@ -33,6 +33,13 @@ export type DataChange = {
   timestamp: number;
 };
 
+export interface TaskCounts {
+  todo: number;
+  inprogress: number;
+  done: number;
+}
+
+
 const SupabaseNotConfigured: React.FC = () => (
   <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn bg-amber-100 dark:bg-amber-900/30 p-8 rounded-lg border border-amber-300 dark:border-amber-700">
     <h2 className="text-2xl font-bold text-amber-700 dark:text-amber-300">Supabase Not Configured</h2>
@@ -63,6 +70,7 @@ const AppContent: React.FC = () => {
   const [colorScheme, setColorScheme] = useLocalStorage<ColorScheme>('colorScheme', 'sky');
   const [language, setLanguage] = useLocalStorage<keyof typeof translations>('language', 'en');
   const [defaultDueDateOffset, setDefaultDueDateOffset] = useLocalStorage<number>('defaultDueDateOffset', 0);
+  const [timezone, setTimezone] = useLocalStorage<string>('timezone', 'Asia/Ho_Chi_Minh');
   
   const [lastDataChange, setLastDataChange] = useState<DataChange | null>(null);
   const notifyDataChange = useCallback((change: Omit<DataChange, 'timestamp'>) => {
@@ -70,6 +78,8 @@ const AppContent: React.FC = () => {
   }, []);
 
   const t = translations[language];
+  const [taskCounts, setTaskCounts] = useState<TaskCounts>({ todo: 0, inprogress: 0, done: 0 });
+
 
   const {
       profile, allUsers, loadingProfile, isAdminView, setIsAdminView, getProfile
@@ -99,6 +109,12 @@ const AppContent: React.FC = () => {
     root.classList.remove('theme-sky', 'theme-ocean', 'theme-sunset');
     root.classList.add(`theme-${colorScheme}`);
   }, [colorScheme]);
+  
+  useEffect(() => {
+    if (!session) {
+        setTaskCounts({ todo: 0, inprogress: 0, done: 0 });
+    }
+  }, [session]);
 
   const handleViewTaskFromNotification = useCallback(async (taskId: number) => {
     try {
@@ -178,6 +194,7 @@ const AppContent: React.FC = () => {
             onStartTimer={timerActions.handleStartTimer}
             onStopTimer={timerActions.handleStopTimer}
             activeTimer={activeTimer}
+            setTaskCounts={setTaskCounts}
           />;
       }
       
@@ -192,11 +209,12 @@ const AppContent: React.FC = () => {
         onStopTimer={timerActions.handleStopTimer}
         activeTimer={activeTimer}
         allUsers={allUsers}
+        setTaskCounts={setTaskCounts}
       />;
   }
 
   return (
-    <SettingsContext.Provider value={{ theme, setTheme, colorScheme, setColorScheme, language, setLanguage, t, defaultDueDateOffset, setDefaultDueDateOffset }}>
+    <SettingsContext.Provider value={{ theme, setTheme, colorScheme, setColorScheme, language, setLanguage, t, defaultDueDateOffset, setDefaultDueDateOffset, timezone, setTimezone }}>
       <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans flex flex-col">
         <Header 
           session={session}
@@ -213,6 +231,7 @@ const AppContent: React.FC = () => {
           onOpenActivityLog={modals.activityLog.open}
           onOpenNotifications={modals.notifications.open}
           unreadCount={unreadCount}
+          taskCounts={taskCounts}
         />
 
         <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">

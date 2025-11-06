@@ -190,6 +190,7 @@ const en: Translation = {
   days: "days",
   clearCancelledTasksTitle: "Clear all cancelled tasks",
   clearCancelledTasksConfirmation: (count) => `Are you sure you want to permanently delete ${count} cancelled tasks? This cannot be undone.`,
+  timezone: "Timezone",
 
   // User Guide
   userGuide_s1_title: "Getting Started",
@@ -416,6 +417,7 @@ const vi: Translation = {
   days: "ngày",
   clearCancelledTasksTitle: "Dọn dẹp các công việc đã hủy",
   clearCancelledTasksConfirmation: (count) => `Bạn có chắc muốn xóa vĩnh viễn ${count} công việc đã hủy không? Hành động này không thể hoàn tác.`,
+  timezone: "Múi giờ",
 
   // User Guide
   userGuide_s1_title: "Bắt đầu",

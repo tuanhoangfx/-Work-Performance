@@ -5,18 +5,19 @@ import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { Task } from '../types';
 import TaskCard from './TaskCard';
+import { TaskCounts } from '../App';
 
 interface AnimatedNumberProps {
   value: number;
 }
 
-const AnimatedNumber: React.FC<AnimatedNumberProps> = ({ value }) => {
+const AnimatedNumber: React.FC<AnimatedNumberProps> = React.memo(({ value }) => {
   return (
     <span key={value} className="animate-numberFlip inline-block font-semibold">
       {value.toLocaleString()}
     </span>
   );
-};
+});
 
 interface TaskPreviewPopoverProps {
     isOpen: boolean;
@@ -94,59 +95,15 @@ interface ActivityTickerProps {
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
+    taskCounts: TaskCounts;
 }
 
-const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, onDeleteTask, onUpdateStatus }) => {
+const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, onDeleteTask, onUpdateStatus, taskCounts }) => {
   const { t } = useSettings();
-  const [taskCounts, setTaskCounts] = useState({ todo: 0, inprogress: 0, done: 0 });
-  const [isLoading, setIsLoading] = useState(true);
-
   const [activePreview, setActivePreview] = useState<Task['status'] | null>(null);
   const [previewTasks, setPreviewTasks] = useState<Task[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-
-  const fetchTickerData = useCallback(async () => {
-    if (!session) {
-      setTaskCounts({ todo: 0, inprogress: 0, done: 0 });
-      setIsLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('status')
-      .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`);
-      
-    if (error) {
-      console.error("Error fetching task counts:", error);
-    } else {
-      const counts = {
-        todo: data.filter(task => task.status === 'todo').length,
-        inprogress: data.filter(task => task.status === 'inprogress').length,
-        done: data.filter(task => task.status === 'done').length,
-      };
-      setTaskCounts(counts);
-    }
-
-    if (isLoading) {
-        setIsLoading(false);
-    }
-  }, [session, isLoading]);
   
-  useEffect(() => {
-    fetchTickerData();
-
-     const changes = supabase.channel('tasks-ticker')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
-        fetchTickerData()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(changes)
-    }
-  }, [fetchTickerData]);
-
   useEffect(() => {
     if (!activePreview || !session) {
         setPreviewTasks([]);
@@ -154,6 +111,8 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, on
     }
     const fetchPreviewTasks = async () => {
         setIsLoadingPreview(true);
+        // This fetch is for the popover only and remains independent.
+        // It fetches unfiltered tasks for the logged-in user for the selected status.
         const { data, error } = await supabase
             .from('tasks')
             .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
@@ -175,8 +134,8 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, on
     setActivePreview(current => (current === status ? null : status));
   };
   
-  if (isLoading) {
-    return <div className="text-xs animate-pulse">...</div>;
+  if (!session) {
+    return null; // Don't show anything if not logged in
   }
   
   const stats = [

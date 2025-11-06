@@ -3,31 +3,15 @@ import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import { XIcon, SpinnerIcon } from './Icons';
 import type { ActivityLog } from '../types';
+import { formatAbsoluteDateTime } from '../lib/taskUtils';
 
 interface ActivityLogModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const timeAgo = (dateString: string, lang: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-
-    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
-
-    if (days > 0) return rtf.format(-days, 'day');
-    if (hours > 0) return rtf.format(-hours, 'hour');
-    if (minutes > 0) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-};
-
-
 const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) => {
-    const { t, language } = useSettings();
+    const { t, language, timezone } = useSettings();
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -124,7 +108,7 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                                 <li key={log.id} className="flex items-start gap-3">
                                     <div className="flex-shrink-0 mt-0.5">
                                         {log.profiles?.avatar_url ? (
-                                            <img src={log.profiles.avatar_url} alt={log.profiles.full_name} className="w-7 h-7 rounded-full object-cover" />
+                                            <img src={log.profiles.avatar_url} alt={log.profiles.full_name || undefined} className="w-7 h-7 rounded-full object-cover" />
                                         ) : (
                                             <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold">
                                                 {(log.profiles?.full_name || '?').charAt(0).toUpperCase()}
@@ -138,7 +122,7 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                                                 .replace(/"(.*?)"/g, `<strong class="font-semibold text-[var(--accent-color)] dark:text-[var(--accent-color-dark)]">"$1"</strong>`)
                                             }}
                                         />
-                                        <time className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(log.created_at, language)}</time>
+                                        <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(log.created_at, language, timezone)}</time>
                                     </div>
                                 </li>
                             ))}

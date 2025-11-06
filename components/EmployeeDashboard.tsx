@@ -6,9 +6,12 @@ import type { Session } from '@supabase/supabase-js';
 import { SpinnerIcon, ViewGridIcon, CalendarDaysIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './Icons';
 import TaskCard from './TaskCard';
 import CalendarView from './CalendarView';
-import PerformanceSummary from './PerformanceSummary';
+import PerformanceSummary, { TimeRange } from './PerformanceSummary';
 import FilterBar, { Filters } from './FilterBar';
-import type { DataChange } from '../App';
+import type { DataChange, TaskCounts } from '../App';
+import SortDropdown from './SortDropdown';
+import { type SortConfig, sortTasks } from '../lib/taskUtils';
+
 
 interface TaskDashboardProps {
     session: Session;
@@ -21,6 +24,7 @@ interface TaskDashboardProps {
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
     allUsers: Profile[];
+    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
 const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view: 'board' | 'calendar') => void; }> = ({ view, setView }) => {
@@ -33,7 +37,7 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
     const { t } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,6 +45,19 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
     const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all' });
+    const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
+        todo: { field: 'priority', direction: 'desc' },
+        inprogress: { field: 'priority', direction: 'desc' },
+        done: { field: 'updated_at', direction: 'desc' },
+        cancelled: { field: 'updated_at', direction: 'desc' },
+    });
+    
+    // State for time range filtering
+    const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
+    const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
+
 
     const fetchTasks = useCallback(async (userId: string) => {
         setLoading(true);
@@ -90,8 +107,72 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         }
     }, [lastDataChange, session, fetchTasks]);
 
+    const { tasksForSummaryAndChart } = useMemo(() => {
+        const now = new Date();
+        let startDate: Date;
+        let endDate: Date;
 
-    const filteredTasks = useMemo(() => {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        switch (timeRange) {
+            case 'today':
+                startDate = todayStart;
+                endDate = todayEnd;
+                break;
+            case 'thisWeek':
+                const firstDayOfWeek = new Date(todayStart);
+                firstDayOfWeek.setDate(todayStart.getDate() - todayStart.getDay());
+                startDate = firstDayOfWeek;
+                endDate = todayEnd;
+                break;
+            case 'thisMonth':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = todayEnd;
+                break;
+            case 'last7':
+                startDate = new Date();
+                startDate.setDate(todayStart.getDate() - 6);
+                startDate.setHours(0,0,0,0);
+                endDate = todayEnd;
+                break;
+            case 'last30':
+                startDate = new Date();
+                startDate.setDate(todayStart.getDate() - 29);
+                startDate.setHours(0,0,0,0);
+                endDate = todayEnd;
+                break;
+            case 'customMonth':
+                if (!customMonth) return { tasksForSummaryAndChart: tasks };
+                const [year, month] = customMonth.split('-').map(Number);
+                startDate = new Date(year, month - 1, 1);
+                endDate = new Date(year, month, 0);
+                endDate.setHours(23, 59, 59, 999);
+                break;
+            case 'customRange':
+                if (!customStartDate) return { tasksForSummaryAndChart: tasks };
+                startDate = new Date(customStartDate);
+                startDate.setHours(0, 0, 0, 0);
+                endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
+                endDate.setHours(23, 59, 59, 999);
+                break;
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = todayEnd;
+        }
+
+        const filtered = tasks.filter(task => {
+            const taskDate = new Date(task.created_at);
+            return taskDate >= startDate && taskDate <= endDate;
+        });
+        return { tasksForSummaryAndChart: filtered };
+    }, [tasks, timeRange, customMonth, customStartDate, customEndDate]);
+
+
+    const filteredTasksForBoard = useMemo(() => {
         return tasks.filter(task => {
             const trimmedSearch = filters.searchTerm.trim();
             const isNumericSearch = /^\d+$/.test(trimmedSearch);
@@ -126,15 +207,29 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     };
 
     const { todo, inprogress, done, cancelled } = useMemo(() => {
-        return {
-            todo: filteredTasks.filter(t => t.status === 'todo'),
-            inprogress: filteredTasks.filter(t => t.status === 'inprogress'),
-            done: filteredTasks.filter(t => t.status === 'done'),
-            cancelled: filteredTasks.filter(t => t.status === 'cancelled'),
+        const grouped = {
+            todo: filteredTasksForBoard.filter(t => t.status === 'todo'),
+            inprogress: filteredTasksForBoard.filter(t => t.status === 'inprogress'),
+            done: filteredTasksForBoard.filter(t => t.status === 'done'),
+            cancelled: filteredTasksForBoard.filter(t => t.status === 'cancelled'),
         };
-    }, [filteredTasks]);
+        return {
+            todo: sortTasks(grouped.todo, sortConfigs.todo),
+            inprogress: sortTasks(grouped.inprogress, sortConfigs.inprogress),
+            done: sortTasks(grouped.done, sortConfigs.done),
+            cancelled: sortTasks(grouped.cancelled, sortConfigs.cancelled),
+        };
+    }, [filteredTasksForBoard, sortConfigs]);
     
-    const renderBoard = () => {
+    useEffect(() => {
+        setTaskCounts({
+            todo: todo.length,
+            inprogress: inprogress.length,
+            done: done.length,
+        });
+    }, [todo, inprogress, done, setTaskCounts]);
+    
+    const renderBoardColumns = () => {
         const statusConfig = {
             todo: { icon: <ClipboardListIcon size={16} className="text-orange-500" />, borderColor: 'border-orange-500', title: t.todo },
             inprogress: { icon: <SpinnerIcon size={16} className="text-indigo-500 animate-spin" />, borderColor: 'border-indigo-500', title: t.inprogress },
@@ -149,25 +244,23 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         ];
 
         return (
-            <div className="space-y-6">
-                 <PerformanceSummary allTasks={tasks} />
-                 <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
-                    {columns.map(({ tasks, status }) => {
-                        const { icon, borderColor, title } = statusConfig[status];
-                        return (
-                        <div
-                            key={status}
-                            onDrop={() => handleDrop(status)}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverStatus(status); }}
-                            onDragLeave={() => setDragOverStatus(null)}
-                            className={`bg-gray-100 dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
-                        >
-                            <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
-                                <div className="flex items-center gap-2">
-                                    {icon}
-                                    <span>{title} ({tasks.length})</span>
-                                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
+                {columns.map(({ tasks, status }) => {
+                    const { icon, borderColor, title } = statusConfig[status];
+                    return (
+                    <div
+                        key={status}
+                        onDrop={() => handleDrop(status)}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverStatus(status); }}
+                        onDragLeave={() => setDragOverStatus(null)}
+                        className={`bg-gray-100 dark:bg-gray-800/50 rounded-lg p-3 flex flex-col transition-colors duration-200 ${dragOverStatus === status ? 'bg-sky-100 dark:bg-sky-900/30' : ''}`}
+                    >
+                        <h3 className={`font-bold text-gray-700 dark:text-gray-300 px-2 pb-2 border-b-2 ${borderColor} flex-shrink-0 flex items-center justify-between gap-2`}>
+                            <div className="flex items-center gap-2">
+                                {icon}
+                                <span>{title} ({tasks.length})</span>
+                            </div>
+                            <div className="flex items-center">
                                 {status === 'cancelled' && tasks.length > 0 && (
                                     <button 
                                         onClick={() => onClearCancelledTasks(tasks)}
@@ -177,66 +270,68 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                                         <TrashIcon size={14} />
                                     </button>
                                 )}
-                            </h3>
-                            <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
-                                {tasks.map(task => (
-                                    <TaskCard 
-                                        key={task.id} 
-                                        task={task} 
-                                        onEdit={onEditTask} 
-                                        onDelete={onDeleteTask} 
-                                        onUpdateStatus={onUpdateStatus} 
-                                        onDragStart={setDraggedTaskId} 
-                                        assignee={task.assignee}
-                                        creator={task.creator}
-                                    />
-                                ))}
-                                {tasks.length === 0 && (
-                                    <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
-                                )}
+                                 <SortDropdown 
+                                    status={status}
+                                    config={sortConfigs[status]}
+                                    onChange={(newConfig) => setSortConfigs(prev => ({ ...prev, [status]: newConfig }))}
+                                />
                             </div>
+                        </h3>
+                        <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
+                            {tasks.map(task => (
+                                <TaskCard 
+                                    key={task.id} 
+                                    task={task} 
+                                    onEdit={onEditTask} 
+                                    onDelete={onDeleteTask} 
+                                    onUpdateStatus={onUpdateStatus} 
+                                    onDragStart={setDraggedTaskId} 
+                                    assignee={task.assignee}
+                                    creator={task.creator}
+                                />
+                            ))}
+                            {tasks.length === 0 && (
+                                <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>
+                            )}
                         </div>
-                    )})}
-                </div>
+                    </div>
+                )})}
             </div>
         );
     };
-
-    const renderContent = () => {
-        if (loading) {
-            return (
-                <div className="flex justify-center items-center p-10">
-                    <SpinnerIcon size={40} className="animate-spin text-[var(--accent-color)]" />
-                </div>
-            );
-        }
-        switch (view) {
-            case 'board':
-                return renderBoard();
-            case 'calendar':
-                return <CalendarView tasks={tasks} onTaskClick={onEditTask} />;
-            default:
-                return null;
-        }
-    }
-
 
     if (!session) {
          return <div className="text-center p-8">{t.signInToManageTasks}</div>;
     }
     
     return (
-        <div className="w-full animate-fadeInUp">
-            <div className="relative flex justify-center items-center mb-6">
-                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] dark:from-[var(--accent-color-dark)] dark:to-[var(--gradient-to)] text-center">
-                    {t.myTasksTitle}
-                </h1>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                    <DashboardViewToggle view={view} setView={setView} />
-                </div>
-            </div>
+        <div className="w-full animate-fadeInUp space-y-6">
+            <PerformanceSummary
+                title={t.performanceSummary}
+                tasks={tasksForSummaryAndChart}
+                timeRange={timeRange}
+                setTimeRange={setTimeRange}
+                customMonth={customMonth}
+                setCustomMonth={setCustomMonth}
+                customStartDate={customStartDate}
+                setCustomStartDate={setCustomStartDate}
+                customEndDate={customEndDate}
+                setCustomEndDate={setCustomEndDate}
+             >
+                <DashboardViewToggle view={view} setView={setView} />
+            </PerformanceSummary>
+            
+            <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
 
-            {renderContent()}
+            {loading ? (
+                <div className="flex justify-center items-center p-10">
+                    <SpinnerIcon size={40} className="animate-spin text-[var(--accent-color)]" />
+                </div>
+            ) : view === 'board' ? (
+                renderBoardColumns()
+            ) : (
+                <CalendarView tasks={filteredTasksForBoard} onTaskClick={onEditTask} />
+            )}
         </div>
     );
 };

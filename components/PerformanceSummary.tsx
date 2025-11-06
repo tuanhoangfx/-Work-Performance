@@ -1,13 +1,24 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from './Icons';
+
+export type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';
 
 interface PerformanceSummaryProps {
-  allTasks: Task[];
+  title: string;
+  children?: React.ReactNode;
+  tasks: Task[];
+  timeRange: TimeRange;
+  setTimeRange: (range: TimeRange) => void;
+  customMonth: string;
+  setCustomMonth: (month: string) => void;
+  customStartDate: string;
+  setCustomStartDate: (date: string) => void;
+  customEndDate: string;
+  setCustomEndDate: (date: string) => void;
 }
 
-type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';
 
 const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = React.memo(({ icon, label, value }) => (
     <div className="bg-white dark:bg-gray-800/80 rounded-lg shadow p-3 flex items-center gap-3">
@@ -48,13 +59,16 @@ const MonthPicker: React.FC<{ value: string, onChange: (value: string) => void }
             <button 
                 type="button" 
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-between gap-2 w-44 px-3 py-2 bg-white dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] text-sm"
+                className="w-44 flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm"
             >
-                <span className="font-medium text-gray-800 dark:text-gray-200">{formattedValue}</span>
-                <CalendarIcon size={16} className="text-gray-500" />
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <CalendarIcon size={16} className="text-gray-500 flex-shrink-0" />
+                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{formattedValue}</span>
+                </div>
+                <ChevronDownIcon size={16} className="text-gray-400 flex-shrink-0" />
             </button>
             {isOpen && (
-                <div className="absolute z-10 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border dark:border-gray-700 p-3 animate-fadeIn">
+                <div className="absolute z-40 top-full mt-2 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-xl border dark:border-gray-700 p-3 animate-fadeIn">
                     <div className="flex items-center justify-between mb-3">
                         <button type="button" onClick={() => setDisplayYear(y => y - 1)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeftIcon size={18}/></button>
                         <span className="font-semibold text-gray-800 dark:text-gray-200">{currentYear}</span>
@@ -69,7 +83,7 @@ const MonthPicker: React.FC<{ value: string, onChange: (value: string) => void }
                                     onChange(`${currentYear}-${(index + 1).toString().padStart(2, '0')}`);
                                     setIsOpen(false);
                                 }}
-                                className={`p-2 text-sm rounded-md transition-colors ${currentYear === new Date(value + '-01').getFullYear() && selectedMonth === index ? 'bg-[var(--accent-color)] text-white font-bold' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                className={`p-2 text-sm rounded-md transition-colors text-gray-800 dark:text-gray-200 ${currentYear === new Date(value + '-01').getFullYear() && selectedMonth === index ? 'bg-[var(--accent-color)] text-white font-bold' : 'hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20'}`}
                             >
                                 {month}
                             </button>
@@ -84,90 +98,87 @@ const MonthPicker: React.FC<{ value: string, onChange: (value: string) => void }
     );
 };
 
+const TimeRangeSelect: React.FC<{ value: TimeRange; onChange: (range: TimeRange) => void; options: { value: TimeRange; label: string }[] }> = ({ value, onChange, options }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (ref.current && !ref.current.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({ allTasks }) => {
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className="relative w-44" ref={ref}>
+        <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm">
+            <div className="flex items-center gap-2 overflow-hidden">
+                <CalendarIcon size={16} className="text-gray-500 flex-shrink-0"/>
+                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{selectedOption.label}</span>
+            </div>
+            <ChevronDownIcon size={16} className="text-gray-400 flex-shrink-0"/>
+        </button>
+        {isOpen && (
+            <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-60 overflow-y-auto">
+                {options.map((option) => (
+                    <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => { onChange(option.value); setIsOpen(false); }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20"
+                    >
+                        <span>{option.label}</span>
+                    </button>
+                ))}
+            </div>
+        )}
+    </div>
+  );
+};
+
+
+const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({
+  title,
+  children,
+  tasks,
+  timeRange,
+  setTimeRange,
+  customMonth,
+  setCustomMonth,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
+}) => {
   const { t } = useSettings();
-  const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
-  const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  const timeRangeOptions = useMemo(() => [
+        { value: 'today' as TimeRange, label: t.today },
+        { value: 'thisWeek' as TimeRange, label: t.thisWeek },
+        { value: 'thisMonth' as TimeRange, label: t.thisMonth },
+        { value: 'last7' as TimeRange, label: t.last7Days },
+        { value: 'last30' as TimeRange, label: t.last30Days },
+        { value: 'customMonth' as TimeRange, label: t.customMonth },
+        { value: 'customRange' as TimeRange, label: t.customRange },
+    ], [t]);
 
-
-  const filteredTasks = useMemo(() => {
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
-    switch (timeRange) {
-        case 'today':
-            startDate = todayStart;
-            endDate = todayEnd;
-            break;
-        case 'thisWeek':
-            const firstDayOfWeek = new Date(todayStart);
-            firstDayOfWeek.setDate(todayStart.getDate() - todayStart.getDay());
-            startDate = firstDayOfWeek;
-            endDate = todayEnd;
-            break;
-        case 'thisMonth':
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = todayEnd;
-            break;
-        case 'last7':
-            startDate = new Date();
-            startDate.setDate(todayStart.getDate() - 6);
-            startDate.setHours(0,0,0,0);
-            endDate = todayEnd;
-            break;
-        case 'last30':
-            startDate = new Date();
-            startDate.setDate(todayStart.getDate() - 29);
-            startDate.setHours(0,0,0,0);
-            endDate = todayEnd;
-            break;
-        case 'customMonth':
-            if (!customMonth) return allTasks;
-            const [year, month] = customMonth.split('-').map(Number);
-            startDate = new Date(year, month - 1, 1);
-            endDate = new Date(year, month, 0);
-            endDate.setHours(23, 59, 59, 999);
-            break;
-        case 'customRange':
-            if (!customStartDate) return allTasks;
-            startDate = new Date(customStartDate);
-            startDate.setHours(0, 0, 0, 0);
-            endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
-            endDate.setHours(23, 59, 59, 999);
-            break;
-        default:
-            return allTasks;
-    }
-
-    return allTasks.filter(task => {
-        const taskDate = new Date(task.created_at);
-        return taskDate >= startDate && taskDate <= endDate;
-    });
-
-  }, [allTasks, timeRange, customMonth, customStartDate, customEndDate]);
 
   const stats = useMemo(() => {
     return {
-      total: filteredTasks.length,
-      todo: filteredTasks.filter(t => t.status === 'todo').length,
-      inprogress: filteredTasks.filter(t => t.status === 'inprogress').length,
-      done: filteredTasks.filter(t => t.status === 'done').length,
-      cancelled: filteredTasks.filter(t => t.status === 'cancelled').length,
+      total: tasks.length,
+      todo: tasks.filter(t => t.status === 'todo').length,
+      inprogress: tasks.filter(t => t.status === 'inprogress').length,
+      done: tasks.filter(t => t.status === 'done').length,
+      cancelled: tasks.filter(t => t.status === 'cancelled').length,
     };
-  }, [filteredTasks]);
+  }, [tasks]);
 
   const avgCompletionTime = useMemo(() => {
-      const doneTasks = filteredTasks.filter(t => t.status === 'done');
+      const doneTasks = tasks.filter(t => t.status === 'done');
       if (doneTasks.length === 0) return 'N/A';
       
       const totalTime = doneTasks.reduce((acc, task) => {
@@ -187,26 +198,19 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({ allTasks }) => 
       if (hours > 0) return `${hours}h ${minutes}m`;
       return `${minutes}m`;
 
-  }, [filteredTasks]);
+  }, [tasks]);
   
   return (
       <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-xl font-bold">{t.performanceSummary}</h3>
-            <div className="flex flex-wrap items-center gap-2">
-                <select
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h3 className="text-xl font-bold">{title}</h3>
+            <div className="flex flex-wrap items-center gap-2 relative z-10">
+                {children}
+                <TimeRangeSelect
                     value={timeRange}
-                    onChange={e => setTimeRange(e.target.value as TimeRange)}
-                    className="block w-auto px-3 py-2 bg-white dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] text-sm"
-                >
-                    <option value="today">{t.today}</option>
-                    <option value="thisWeek">{t.thisWeek}</option>
-                    <option value="thisMonth">{t.thisMonth}</option>
-                    <option value="last7">{t.last7Days}</option>
-                    <option value="last30">{t.last30Days}</option>
-                    <option value="customMonth">{t.customMonth}</option>
-                    <option value="customRange">{t.customRange}</option>
-                </select>
+                    onChange={setTimeRange}
+                    options={timeRangeOptions}
+                />
 
                 {timeRange === 'customMonth' && (
                     <div className="animate-fadeIn">

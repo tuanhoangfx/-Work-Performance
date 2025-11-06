@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useSettings } from '../context/SettingsContext';
 import { XIcon, SpinnerIcon, BellIcon } from './Icons';
 import type { Notification } from '../types';
+import { formatAbsoluteDateTime } from '../lib/taskUtils';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -11,25 +12,8 @@ interface NotificationsModalProps {
   setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const timeAgo = (dateString: string, lang: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-
-    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
-
-    if (days > 0) return rtf.format(-days, 'day');
-    if (hours > 0) return rtf.format(-hours, 'hour');
-    if (minutes > 0) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-};
-
-
 const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, onViewTask, setUnreadCount }) => {
-    const { t, language } = useSettings();
+    const { t, language, timezone } = useSettings();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -185,7 +169,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                                                 .replace(/<strong>/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">')
                                             }}
                                         />
-                                        <time className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(notification.created_at, language)}</time>
+                                        <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(notification.created_at, language, timezone)}</time>
                                     </div>
                                     {!notification.is_read && (
                                         <div className="w-2.5 h-2.5 bg-sky-500 rounded-full flex-shrink-0 mt-1" title="Unread"></div>

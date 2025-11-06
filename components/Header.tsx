@@ -5,6 +5,7 @@ import { LogoIcon, LogOutIcon, UserIcon, BriefcaseIcon, UsersIcon } from './Icon
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '../context/SettingsContext';
 import type { Profile, Task } from '../types';
+import { TaskCounts } from '../App';
 
 interface HeaderProps {
   session: Session | null;
@@ -21,6 +22,7 @@ interface HeaderProps {
   onOpenActivityLog: () => void;
   onOpenNotifications: () => void;
   unreadCount: number;
+  taskCounts: TaskCounts;
 }
 
 interface UserMenuProps {
@@ -70,7 +72,7 @@ const UserMenu: React.FC<UserMenuProps> =
                     <div className="p-2">
                         <button
                             onClick={() => { onAccountClick(); setIsOpen(false); }}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition-colors"
+                            className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20 transition-colors"
                         >
                             <UserIcon size={16} />
                             <span>{t.accountSettings}</span>
@@ -115,7 +117,7 @@ const AdminViewToggle: React.FC<{isAdminView: boolean, setIsAdminView: (isAdminV
 };
 
 
-const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
+const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
   const { t } = useSettings();
 
   return (
@@ -131,6 +133,7 @@ const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSign
         onOpenActivityLog={onOpenActivityLog}
         onOpenNotifications={onOpenNotifications}
         unreadCount={unreadCount}
+        taskCounts={taskCounts}
       />
       <div className="container mx-auto px-4 py-2 md:py-0 md:h-16 flex flex-wrap items-center">
         

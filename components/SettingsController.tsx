@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { SunIcon, MoonIcon, CheckIcon, SettingsIcon } from './Icons';
 import { translations, languageOptions } from '../translations';
@@ -8,6 +9,17 @@ const colorThemes: { name: ColorScheme, from: string, to: string }[] = [
     { name: 'sky', from: 'from-sky-500', to: 'to-indigo-600' },
     { name: 'ocean', from: 'from-blue-700', to: 'to-slate-800' },
     { name: 'sunset', from: 'from-orange-500', to: 'to-rose-600' },
+];
+
+const timezones = [
+    { value: 'UTC', label: 'UTC' },
+    { value: 'Europe/London', label: 'London (GMT)' },
+    { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+    { value: 'Asia/Ho_Chi_Minh', label: 'Hanoi (GMT+7)' },
+    { value: 'Asia/Tokyo', label: 'Tokyo (GMT+9)' },
+    { value: 'America/New_York', label: 'New York (EST)' },
+    { value: 'America/Chicago', label: 'Chicago (CST)' },
+    { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
 ];
 
 const SettingsController: React.FC = () => {
@@ -21,6 +33,8 @@ const SettingsController: React.FC = () => {
     t,
     defaultDueDateOffset,
     setDefaultDueDateOffset,
+    timezone,
+    setTimezone,
   } = useSettings();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -59,7 +73,7 @@ const SettingsController: React.FC = () => {
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-56 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 animate-fadeIn"
+          className="absolute right-0 mt-2 w-64 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 z-50 animate-fadeIn"
           role="menu"
         >
           <div className="p-3 space-y-4">
@@ -118,9 +132,9 @@ const SettingsController: React.FC = () => {
             {/* Divider */}
             <div className="border-t border-black/10 dark:border-white/10"></div>
 
-            {/* Due Date Settings */}
-            <div className="space-y-1">
-               <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 tracking-wider mb-2 px-1">{t.dashboardTitle}</label>
+            {/* General Settings */}
+            <div className="space-y-3">
+               <h3 className="px-1 text-xs font-bold uppercase text-gray-500 dark:text-gray-400 tracking-wider">General</h3>
                <div className="px-2">
                  <label htmlFor="dueDateOffset" className="block text-xs font-semibold text-gray-500 dark:text-gray-400">
                     {t.defaultDueDateIn}
@@ -137,6 +151,21 @@ const SettingsController: React.FC = () => {
                     <span className="text-sm text-gray-600 dark:text-gray-400">{t.days}</span>
                   </div>
                </div>
+               <div className="px-2">
+                  <label htmlFor="timezone" className="block text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    {t.timezone}
+                  </label>
+                  <select
+                    id="timezone"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="mt-1 block w-full px-2 py-1.5 bg-gray-200 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm"
+                  >
+                    {timezones.map(tz => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
+               </div>
             </div>
 
             {/* Divider */}
@@ -150,7 +179,7 @@ const SettingsController: React.FC = () => {
                     <button
                       key={option.id}
                       onClick={() => handleLanguageChange(option.id as keyof typeof translations)}
-                      className="w-full text-left flex justify-between items-center px-3 py-1.5 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition-colors"
+                      className="w-full text-left flex justify-between items-center px-3 py-1.5 text-sm rounded-md text-gray-700 dark:text-gray-300 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20 transition-colors"
                       role="menuitem"
                     >
                       <span>{option.name}</span>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
@@ -48,8 +49,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach(task => {
-      if (task.due_date) {
-        const dateKey = new Date(task.due_date).toDateString();
+      if (task.due_date) { // due_date is 'YYYY-MM-DD'
+        // Parse date string manually to avoid timezone interpretation issues.
+        // new Date('2023-10-26') creates a date at UTC midnight, which can be the previous day in some timezones.
+        // This creates the date at local midnight, which is what we want for a calendar view.
+        const parts = task.due_date.split('-').map(s => parseInt(s, 10));
+        const localDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        const dateKey = localDate.toDateString();
+        
         if (!map.has(dateKey)) {
           map.set(dateKey, []);
         }
@@ -73,12 +80,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
       return newDate;
     });
   };
-
-  const priorityColors = {
-    high: 'bg-red-500',
-    medium: 'bg-yellow-500',
-    low: 'bg-green-500',
+  
+  const statusColors: { [key in Task['status']]: string } = {
+    todo: 'bg-orange-500 hover:bg-orange-600',
+    inprogress: 'bg-indigo-500 hover:bg-indigo-600',
+    done: 'bg-green-500 hover:bg-green-600',
+    cancelled: 'bg-gray-500 hover:bg-gray-600 line-through',
   };
+
 
   return (
     <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-md p-4">
@@ -105,10 +114,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
                         <div 
                             key={task.id} 
                             onClick={() => onTaskClick(task)}
-                            className="p-1 rounded text-white text-xs cursor-pointer hover:opacity-80 flex items-center gap-1.5"
-                            style={{ backgroundColor: `var(--${task.priority}-priority-color, #718096)` }}
+                            className={`p-1 rounded text-white text-xs cursor-pointer transition-colors flex items-center gap-1.5 ${statusColors[task.status]}`}
+                            title={task.title}
                         >
-                            <div className={`w-2 h-2 rounded-full ${priorityColors[task.priority]}`}></div>
                             <span className="truncate">{task.title}</span>
                         </div>
                     ))}

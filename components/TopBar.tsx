@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { PlusIcon, HistoryIcon, BellIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import { Profile, Task } from '../types';
+import { TaskCounts } from '../App';
 
 interface TopBarProps {
     session: Session | null;
@@ -17,9 +18,10 @@ interface TopBarProps {
     onOpenActivityLog: () => void;
     onOpenNotifications: () => void;
     unreadCount: number;
+    taskCounts: TaskCounts;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, isAdminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount }) => {
+const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, isAdminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
     const { t } = useSettings();
     const canAddTask = session && !(profile?.role === 'admin' && isAdminView);
 
@@ -35,10 +37,11 @@ const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, isAdmin
                 {/* Center Ticker */}
                 <div className="flex-1 flex justify-center">
                      <ActivityTicker 
-                        session={session} 
+                        session={session}
                         onEditTask={onEditTask}
                         onDeleteTask={onDeleteTask}
                         onUpdateStatus={onUpdateStatus}
+                        taskCounts={taskCounts}
                     />
                 </div>
 

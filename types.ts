@@ -293,6 +293,7 @@ export type Translation = {
   days: string;
   clearCancelledTasksTitle: string;
   clearCancelledTasksConfirmation: (count: number) => string;
+  timezone: string;
 
   // User Guide
   userGuide_s1_title: string;

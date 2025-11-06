@@ -3,6 +3,7 @@ import { XIcon, SpinnerIcon, PaperclipIcon, DocumentTextIcon, TrashIcon, Downloa
 import { useSettings } from '../context/SettingsContext';
 import { Task, TaskAttachment, Profile, TaskComment } from '../types';
 import { supabase } from '../lib/supabase';
+import { formatAbsoluteDateTime } from '../lib/taskUtils';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -21,23 +22,6 @@ const formatBytes = (bytes: number, decimals = 2) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
 }
-
-const timeAgo = (dateString: string, lang: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
-
-    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
-
-    if (days > 0) return rtf.format(-days, 'day');
-    if (hours > 0) return rtf.format(-hours, 'hour');
-    if (minutes > 0) return rtf.format(-minutes, 'minute');
-    return rtf.format(-seconds, 'second');
-};
-
 
 const AttachmentItem: React.FC<{
     file: { name: string; type?: string; size: number; id?: number, file_path?: string, file_type?: string, dataUrl?: string };
@@ -119,7 +103,7 @@ interface TempComment {
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser }) => {
-  const { t, language, defaultDueDateOffset } = useSettings();
+  const { t, language, defaultDueDateOffset, timezone } = useSettings();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('todo');
@@ -175,9 +159,20 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setDescription('');
                 setStatus('todo');
                 setPriority('medium');
-                const defaultDate = new Date();
-                defaultDate.setDate(defaultDate.getDate() + defaultDueDateOffset);
-                setDueDate(defaultDate.toISOString().split('T')[0]);
+                
+                const targetDate = new Date();
+                targetDate.setDate(targetDate.getDate() + defaultDueDateOffset);
+                
+                // Format the date to YYYY-MM-DD in the user's selected timezone
+                const formatter = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: timezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                const formattedDate = formatter.format(targetDate);
+                setDueDate(formattedDate);
+                
                 setAttachments([]);
                 setComments([]);
                 setTempNewComments([]);
@@ -194,7 +189,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
              setEditingTaskId(undefined);
         }
     }
-  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId]);
+  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId, timezone]);
 
   useEffect(() => {
     if (validationError === 'title' && title.trim()) {
@@ -353,11 +348,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 <ChevronDownIcon size={16} className="text-gray-400" />
             </button>
             {isOpen && (
-                <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-700 rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn">
+                <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn">
                     {Object.entries(options).map(([key, option]: [string, any]) => {
                         const ItemIcon = option.icon;
                         return (
-                            <button key={key} type="button" onClick={() => { onChange(key); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 first:rounded-t-md last:rounded-b-md">
+                            <button key={key} type="button" onClick={() => { onChange(key); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20 first:rounded-t-md last:rounded-b-md">
                                 {typeof ItemIcon === 'string'
                                     ? <span className="text-base">{ItemIcon}</span>
                                     : <ItemIcon size={16} className={`${option.color} ${option.iconClass || ''}`} />}
@@ -404,9 +399,9 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 <ChevronDownIcon size={16} className="text-gray-400" />
             </button>
             {isOpen && (
-                <div className="absolute z-20 top-full mt-1 w-full bg-white dark:bg-gray-700 rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-48 overflow-y-auto">
+                <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-48 overflow-y-auto">
                     {options.map((option) => (
-                        <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600">
+                        <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20">
                              <UserAvatar user={option} />
                             <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{option.full_name}</span>
                         </button>
@@ -521,7 +516,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                               <div className="flex-grow">
                                 <div className="flex items-center gap-2">
                                   <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{comment.profiles?.full_name}</span>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(comment.created_at, language)}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(comment.created_at, language, timezone)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">{comment.content}</p>
                               </div>

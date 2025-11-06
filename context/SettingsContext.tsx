@@ -16,6 +16,8 @@ export interface SettingsContextType {
   t: Translation;
   defaultDueDateOffset: number;
   setDefaultDueDateOffset: (offset: number) => void;
+  timezone: string;
+  setTimezone: (tz: string) => void;
 }
 
 // Create the context with an undefined initial value
