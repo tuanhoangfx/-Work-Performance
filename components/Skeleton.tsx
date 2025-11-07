@@ -51,3 +51,13 @@ export const EmployeeListSkeleton: React.FC = () => (
         ))}
     </ul>
 );
+
+export const ActivityLogItemSkeleton: React.FC = () => (
+    <div className="flex items-start gap-3 p-1">
+        <Skeleton className="w-7 h-7 rounded-full flex-shrink-0" />
+        <div className="flex-grow">
+            <Skeleton className="h-4 w-3/4 mb-1.5" />
+            <Skeleton className="h-3 w-1/4" />
+        </div>
+    </div>
+);

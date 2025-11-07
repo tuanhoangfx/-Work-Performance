@@ -1,10 +1,12 @@
-import React from 'react';
-import { Task, Profile } from '../types';
+import React, { useRef } from 'react';
+import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
 import { type SortConfig } from '../lib/taskUtils';
 import SortDropdown from './SortDropdown';
 import TaskCard from './TaskCard';
 import { TrashIcon } from './Icons';
+import VirtualItem from './common/VirtualItem';
+import { TaskCardSkeleton } from './Skeleton';
 
 interface TaskColumnProps {
     status: Task['status'];
@@ -42,6 +44,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
     onClearCancelledTasks,
 }) => {
     const { t } = useSettings();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     return (
         <div
@@ -72,18 +75,19 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
                     />
                 </div>
             </h3>
-            <div className="mt-4 space-y-3 flex-grow overflow-y-auto">
+            <div ref={scrollContainerRef} className="mt-4 space-y-3 flex-grow overflow-y-auto">
                 {tasks.map(task => (
-                    <TaskCard
-                        key={task.id}
-                        task={task}
-                        onEdit={onEditTask}
-                        onDelete={onDeleteTask}
-                        onUpdateStatus={onUpdateStatus}
-                        onDragStart={setDraggedTaskId}
-                        assignee={task.assignee}
-                        creator={task.creator}
-                    />
+                    <VirtualItem key={task.id} placeholder={<TaskCardSkeleton />} rootRef={scrollContainerRef}>
+                        <TaskCard
+                            task={task}
+                            onEdit={onEditTask}
+                            onDelete={onDeleteTask}
+                            onUpdateStatus={onUpdateStatus}
+                            onDragStart={setDraggedTaskId}
+                            assignee={task.assignee}
+                            creator={task.creator}
+                        />
+                    </VirtualItem>
                 ))}
                 {tasks.length === 0 && (
                     <p className="text-center text-sm text-gray-500 dark:text-gray-400 p-4">{t.noTasksFound}</p>

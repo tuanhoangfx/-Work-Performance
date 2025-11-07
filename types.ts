@@ -287,7 +287,19 @@ export type Translation = {
   log_cleared_cancelled_tasks: (user: string, count: number) => string;
   a_user: string;
   a_task: string;
-  
+  log_searchPlaceholder: string;
+  log_filterByUser: string;
+  log_allUsers: string;
+  log_filterByAction: string;
+  log_allActions: string;
+  log_action_created_task: string;
+  log_action_updated_task: string;
+  log_action_deleted_task: string;
+  log_action_status_changed: string;
+  log_action_added_attachments: string;
+  log_action_removed_attachments: string;
+  log_action_cleared_cancelled_tasks: string;
+
   // Settings
   defaultDueDateIn: string;
   days: string;

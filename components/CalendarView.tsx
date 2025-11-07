@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from './Icons';
 import { type SortConfig, sortTasks } from '../lib/taskUtils';
-import CalendarSortDropdown, { CalendarSortOptionKey, CalendarSortOption } from './CalendarSortDropdown';
+import CalendarSortDropdown from './CalendarSortDropdown';
 
-export type CalendarSortState = { id: CalendarSortOptionKey; config: SortConfig; };
+export type CalendarSortState = { id: 'default' | 'status' | 'priority' | 'creation_date'; config: SortConfig; };
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -15,8 +16,12 @@ interface CalendarViewProps {
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calendarSort, onCalendarSortChange }) => {
-  const { language } = useSettings();
+  const { language, t } = useSettings();
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => currentDate.getFullYear());
+  const monthPickerRef = useRef<HTMLDivElement>(null);
 
   const daysOfWeek = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(language, { weekday: 'short' });
@@ -26,11 +31,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calenda
     });
   }, [language]);
 
-  const { monthName, year, days } = useMemo(() => {
+  const { monthName, year, days, monthEmoji } = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
     const monthName = new Intl.DateTimeFormat(language, { month: 'long' }).format(currentDate);
+    const monthEmojis = ["❄️", "💖", "🍀", "🌧️", "🎓", "🌤️", "🏖️", "🏝️", "📚", "🎃", "🍁", "🎄"];
+    const monthEmoji = monthEmojis[month];
 
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
@@ -47,8 +54,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calenda
     for (let i = 1; i <= totalDays; i++) {
       daysInMonth.push(new Date(year, month, i));
     }
-    return { monthName, year, days: daysInMonth };
+    return { monthName, year, days: daysInMonth, monthEmoji };
   }, [currentDate, language]);
+
+  const pickerMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(pickerYear, i).toLocaleString(language, { month: 'short' })), [pickerYear, language]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (monthPickerRef.current && !monthPickerRef.current.contains(event.target as Node)) {
+            setIsMonthPickerOpen(false);
+        }
+    };
+    if (isMonthPickerOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMonthPickerOpen]);
+
+  useEffect(() => {
+    setPickerYear(currentDate.getFullYear());
+  }, [currentDate]);
 
   const sortedTasks = useMemo(() => {
     return sortTasks(tasks, calendarSort.config);
@@ -81,12 +106,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calenda
              date.getFullYear() === today.getFullYear();
   }
 
-  const changeMonth = (delta: number) => {
-    setCurrentDate(prev => {
-      const newDate = new Date(prev);
-      newDate.setMonth(prev.getMonth() + delta);
-      return newDate;
-    });
+  const handleMonthSelect = (monthIndex: number) => {
+    setCurrentDate(new Date(pickerYear, monthIndex, 1));
+    setIsMonthPickerOpen(false);
   };
   
   const statusColors: { [key in Task['status']]: string } = {
@@ -99,13 +121,54 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calenda
 
   return (
     <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-md p-4">
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-bold order-2 sm:order-1">{monthName} {year}</h2>
-        <div className="flex items-center gap-2 order-1 sm:order-2">
-          <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronLeftIcon /></button>
-          <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronRightIcon /></button>
+      <div className="flex items-center mb-4 flex-wrap gap-2">
+        <div className="flex-1">
+          {/* Spacer */}
         </div>
-        <div className="order-3">
+        
+        <div className="flex justify-center">
+            <div className="relative" ref={monthPickerRef}>
+              <button 
+                type="button" 
+                onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
+                className="w-48 sm:w-52 flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm"
+                aria-haspopup="true"
+                aria-expanded={isMonthPickerOpen}
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-base flex-shrink-0" aria-hidden="true">{monthEmoji}</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">{monthName} {year}</span>
+                </div>
+                <ChevronDownIcon size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${isMonthPickerOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isMonthPickerOpen && (
+                  <div className="absolute z-10 top-full mt-2 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-xl border dark:border-gray-700 p-3 animate-fadeIn">
+                      <div className="flex items-center justify-between mb-3">
+                          <button type="button" onClick={() => setPickerYear(y => y - 1)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Previous year"><ChevronLeftIcon size={18}/></button>
+                          <span className="font-semibold text-gray-800 dark:text-gray-200 tabular-nums">{pickerYear}</span>
+                          <button type="button" onClick={() => setPickerYear(y => y + 1)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Next year"><ChevronRightIcon size={18}/></button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                          {pickerMonths.map((month, index) => (
+                              <button
+                                  key={month}
+                                  type="button"
+                                  onClick={() => handleMonthSelect(index)}
+                                  className={`p-2 text-sm rounded-md transition-colors text-gray-800 dark:text-gray-200 ${pickerYear === year && currentDate.getMonth() === index ? 'bg-[var(--accent-color)] text-white font-bold' : 'hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20'}`}
+                              >
+                                  {month}
+                              </button>
+                          ))}
+                      </div>
+                       <div className="flex justify-between items-center mt-3 pt-2 border-t dark:border-gray-700">
+                          <button type="button" onClick={() => { setCurrentDate(new Date()); setIsMonthPickerOpen(false); }} className="text-xs font-semibold text-[var(--accent-color)] hover:underline">{t.today}</button>
+                       </div>
+                  </div>
+              )}
+            </div>
+        </div>
+
+        <div className="flex-1 flex justify-end">
           <CalendarSortDropdown 
             currentSortId={calendarSort.id} 
             onSortChange={(id, config) => onCalendarSortChange({id, config})} 
