@@ -1,6 +1,6 @@
 import { Task } from '../types';
 
-export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at';
+export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at' | 'status';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {
@@ -9,6 +9,7 @@ export interface SortConfig {
 }
 
 const priorityOrder: { [key in Task['priority']]: number } = { high: 3, medium: 2, low: 1 };
+const statusOrder: { [key in Task['status']]: number } = { todo: 4, inprogress: 3, done: 2, cancelled: 1 };
 
 export const sortTasks = (tasks: Task[], config: SortConfig): Task[] => {
   const sorted = [...tasks];
@@ -16,17 +17,33 @@ export const sortTasks = (tasks: Task[], config: SortConfig): Task[] => {
     const { field, direction } = config;
     const dir = direction === 'asc' ? 1 : -1;
 
-    if (field === 'priority') {
-      return (priorityOrder[a.priority] - priorityOrder[b.priority]) * dir;
-    }
+    let compareResult = 0;
 
-    if (field === 'created_at' || field === 'due_date' || field === 'updated_at') {
-      // Handle null dates: sort them to the end when ascending, beginning when descending
+    if (field === 'priority') {
+      compareResult = (priorityOrder[a.priority] - priorityOrder[b.priority]) * dir;
+    } else if (field === 'status') {
+      compareResult = (statusOrder[a.status] - statusOrder[b.status]) * dir;
+    } else if (field === 'created_at' || field === 'due_date' || field === 'updated_at') {
       const dateA = a[field] ? new Date(a[field]!).getTime() : (direction === 'asc' ? Infinity : -Infinity);
       const dateB = b[field] ? new Date(b[field]!).getTime() : (direction === 'asc' ? Infinity : -Infinity);
-      return (dateA - dateB) * dir;
+      compareResult = (dateA - dateB) * dir;
     }
-    return 0;
+
+    // Secondary sort for priority and status: by creation date ASC (oldest first)
+    if (compareResult === 0 && (field === 'priority' || field === 'status')) {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateA - dateB;
+    }
+    
+    // Default secondary sort: creation date ascending for all other primary sorts if they are equal
+    if (compareResult === 0) {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateA - dateB;
+    }
+
+    return compareResult;
   });
   return sorted;
 };
@@ -50,4 +67,26 @@ export const formatAbsoluteDateTime = (dateString: string, lang: string, timezon
         console.error("Error formatting date:", e);
         return dateString;
     }
+};
+
+const getDateStringInTimezone = (date: Date, timezone: string): string => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    return formatter.format(date);
+}
+
+export const getTodayDateString = (timezone: string): string => {
+    return getDateStringInTimezone(new Date(), timezone);
+};
+
+export const getEndOfWeekDateString = (timezone: string): string => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // Sunday - 0, Saturday - 6
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + (6 - dayOfWeek)); // Get the upcoming Saturday
+    return getDateStringInTimezone(endOfWeek, timezone);
 };

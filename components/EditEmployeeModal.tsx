@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { XIcon, UserIcon } from './Icons';
+import { XIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import type { Profile } from '../types';
+import Avatar from './common/Avatar';
 
 interface EditEmployeeModalProps {
   isOpen: boolean;
@@ -32,6 +33,18 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
         setMessage({text: '', type: ''});
     }, [employee, isOpen]);
     
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setAvatarFile(e.target.files[0]);
@@ -84,6 +97,12 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
 
     if (!isOpen) return null;
 
+    const userForAvatar = {
+        ...employee,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+    };
+
     return (
         <div 
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-start md:items-center p-4 pt-16 md:pt-4 animate-fadeIn"
@@ -113,13 +132,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
                              <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.avatar}</label>
                                 <div className="mt-2 flex items-center gap-4">
-                                    {avatarUrl ? (
-                                        <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
-                                    ) : (
-                                        <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                            <UserIcon size={32} className="text-gray-400" />
-                                        </div>
-                                    )}
+                                    <Avatar user={userForAvatar} title="Avatar" size={64} />
                                     <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.uploadAvatar}</button>
                                     <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/png, image/jpeg" className="hidden"/>
                                 </div>

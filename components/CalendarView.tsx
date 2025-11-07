@@ -1,16 +1,20 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { type SortConfig, sortTasks } from '../lib/taskUtils';
+import CalendarSortDropdown, { CalendarSortOptionKey, CalendarSortOption } from './CalendarSortDropdown';
+
+export type CalendarSortState = { id: CalendarSortOptionKey; config: SortConfig; };
 
 interface CalendarViewProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  calendarSort: CalendarSortState;
+  onCalendarSortChange: (state: CalendarSortState) => void;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calendarSort, onCalendarSortChange }) => {
   const { language } = useSettings();
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -46,9 +50,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
     return { monthName, year, days: daysInMonth };
   }, [currentDate, language]);
 
+  const sortedTasks = useMemo(() => {
+    return sortTasks(tasks, calendarSort.config);
+  }, [tasks, calendarSort.config]);
+
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
-    tasks.forEach(task => {
+    sortedTasks.forEach(task => {
       if (task.due_date) { // due_date is 'YYYY-MM-DD'
         // Parse date string manually to avoid timezone interpretation issues.
         // new Date('2023-10-26') creates a date at UTC midnight, which can be the previous day in some timezones.
@@ -64,7 +72,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
       }
     });
     return map;
-  }, [tasks]);
+  }, [sortedTasks]);
   
   const isToday = (date: Date) => {
       const today = new Date();
@@ -91,10 +99,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick }) => {
 
   return (
     <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-md p-4">
-      <div className="flex justify-between items-center mb-4">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronLeftIcon /></button>
-        <h2 className="text-xl font-bold">{monthName} {year}</h2>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronRightIcon /></button>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+        <h2 className="text-xl font-bold order-2 sm:order-1">{monthName} {year}</h2>
+        <div className="flex items-center gap-2 order-1 sm:order-2">
+          <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronLeftIcon /></button>
+          <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"><ChevronRightIcon /></button>
+        </div>
+        <div className="order-3">
+          <CalendarSortDropdown 
+            currentSortId={calendarSort.id} 
+            onSortChange={(id, config) => onCalendarSortChange({id, config})} 
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1">

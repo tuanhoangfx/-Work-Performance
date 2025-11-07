@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Task, Profile } from '../types';
 import { useSettings } from '../context/SettingsContext';
 import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon } from './Icons';
+import PriorityIndicator from './common/PriorityIndicator';
+import Avatar from './common/Avatar';
 
 interface TaskCardProps {
     task: Task;
@@ -34,36 +36,6 @@ const formatExactTime = (dateString: string, lang: string, timezone: string) => 
     };
     return new Intl.DateTimeFormat(lang, options).format(date);
 };
-
-const PriorityIndicator: React.FC<{ priority: Task['priority'] }> = ({ priority }) => {
-    const { t } = useSettings();
-    const priorityConfig: { [key in Task['priority']]: { label: string; icon: string; color: string, bg: string } } = {
-        low: { label: t.low, icon: '💤', color: 'text-green-700 dark:text-green-300', bg: 'bg-green-100 dark:bg-green-900/50' },
-        medium: { label: t.medium, icon: '⚡', color: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/50' },
-        high: { label: t.high, icon: '🚨', color: 'text-red-700 dark:text-red-300', bg: 'bg-red-100 dark:bg-red-900/50' },
-    };
-    
-    const config = priorityConfig[priority];
-
-    return (
-        <span className={`flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${config.bg} ${config.color}`}>
-            <span className="text-sm">{config.icon}</span>
-            <span>{config.label}</span>
-        </span>
-    );
-}
-
-const Avatar: React.FC<{ user: Profile, title: string }> = ({ user, title }) => (
-     <div title={title}>
-        {user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name || ''} className="w-5 h-5 rounded-full object-cover" />
-        ) : (
-            <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold text-[10px]">
-                {(user.full_name || '?').charAt(0).toUpperCase()}
-            </div>
-        )}
-    </div>
-);
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator }) => {
     const { t, language, timezone } = useSettings();
@@ -204,11 +176,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                  <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {creator && creator.id !== assignee?.id && (
                         <>
-                            <Avatar user={creator} title={`${t.createdBy}: ${creator.full_name}`} />
+                            <Avatar user={creator} title={`${t.createdBy}: ${creator.full_name}`} size={20} />
                             <ArrowRightIcon size={12} className="text-gray-400" />
                         </>
                     )}
-                    {assignee && <Avatar user={assignee} title={`${t.assignee}: ${assignee.full_name}`} />}
+                    {assignee && <Avatar user={assignee} title={`${t.assignee}: ${assignee.full_name}`} size={20} />}
                     <span className="ml-1 tabular-nums">{formatExactTime(task.created_at, language, timezone)}</span>
                 </div>
 

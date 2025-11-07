@@ -1,9 +1,13 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { XIcon, SpinnerIcon, PaperclipIcon, DocumentTextIcon, TrashIcon, DownloadIcon, SendIcon, CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, ChevronDownIcon, ChatBubbleIcon } from './Icons';
+import { XIcon, SpinnerIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import { Task, TaskAttachment, Profile, TaskComment } from '../types';
 import { supabase } from '../lib/supabase';
-import { formatAbsoluteDateTime } from '../lib/taskUtils';
+
+import TaskDetailsForm from './task-modal/TaskDetailsForm';
+import AttachmentSection from './task-modal/AttachmentSection';
+import CommentSection, { TempComment } from './task-modal/CommentSection';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -14,117 +18,31 @@ interface TaskModalProps {
   currentUser: Profile | null;
 }
 
-const formatBytes = (bytes: number, decimals = 2) => {
-  if (!+bytes) return '0 Bytes'
-  const k = 1024
-  const dm = decimals < 0 ? 0 : decimals
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
-}
-
-const AttachmentItem: React.FC<{
-    file: { name: string; type?: string; size: number; id?: number, file_path?: string, file_type?: string, dataUrl?: string };
-    onRemove: () => void;
-    onPreview: () => void;
-    isNew: boolean;
-}> = React.memo(({ file, onRemove, onPreview, isNew }) => {
-    
-    const handleDownload = async () => {
-        if (isNew || !file.file_path) return;
-        try {
-            const { data, error } = await supabase.storage.from('task-attachments').download(file.file_path);
-            if (error) throw error;
-            const url = URL.createObjectURL(data);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (error: any) {
-            console.error('Error downloading file:', error.message);
-            alert('Could not download file.');
-        }
-    };
-
-    const isPreviewable = file.file_type?.startsWith('image/') || file.file_type?.startsWith('video/');
-
-    return (
-        <div className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700/50 rounded-md gap-2">
-            <div className="flex items-center gap-3 overflow-hidden">
-                {isPreviewable ? (
-                     <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0 cursor-pointer" onClick={onPreview}>
-                        {file.file_type?.startsWith('image/') && <img src={file.dataUrl} alt={file.name} className="w-full h-full object-cover rounded" />}
-                        {file.file_type?.startsWith('video/') && <video src={file.dataUrl} className="w-full h-full object-cover rounded" />}
-                    </div>
-                ) : (
-                     <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0 flex items-center justify-center">
-                        <DocumentTextIcon size={24} className="text-gray-500 dark:text-gray-400" />
-                    </div>
-                )}
-                <div className="flex flex-col overflow-hidden">
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatBytes(file.size)}</span>
-                </div>
-            </div>
-            <div className="flex items-center flex-shrink-0">
-                {!isNew && (
-                     <button type="button" onClick={handleDownload} className="p-1.5 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="Download">
-                        <DownloadIcon size={16} />
-                    </button>
-                )}
-                <button type="button" onClick={onRemove} className="p-1.5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Remove">
-                    <TrashIcon size={16} />
-                </button>
-            </div>
-        </div>
-    );
-});
-
-
-const AttachmentPreviewModal: React.FC<{ attachment: any; onClose: () => void }> = ({ attachment, onClose }) => {
-    return (
-        <div className="fixed inset-0 bg-black/80 z-[60] flex justify-center items-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                 <button onClick={onClose} className="absolute -top-8 -right-2 text-white hover:text-gray-300" aria-label="Close preview"><XIcon size={28}/></button>
-                 {attachment.file_type.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name} className="max-w-full max-h-[90vh] object-contain rounded-lg" />}
-                 {attachment.file_type.startsWith('video/') && <video src={attachment.dataUrl} controls autoPlay className="max-w-full max-h-[90vh] object-contain rounded-lg" />}
-            </div>
-        </div>
-    )
-}
-
-interface TempComment {
-    content: string;
-    profiles: Profile;
-    user_id: string;
-}
-
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser }) => {
-  const { t, language, defaultDueDateOffset, timezone } = useSettings();
+  const { t, defaultDueDateOffset, timezone } = useSettings();
+  
+  // State for form fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('todo');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+
+  // State for attachments
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [previewAttachment, setPreviewAttachment] = useState<any | null>(null);
-  const [assigneeId, setAssigneeId] = useState('');
   
+  // State for comments
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [isPostingComment, setIsPostingComment] = useState(false);
-  const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
   const [tempNewComments, setTempNewComments] = useState<TempComment[]>([]);
-  const [isCommentInputVisible, setCommentInputVisible] = useState(false);
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  
+  // Modal/logic state
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
   const [validationError, setValidationError] = useState<'title' | 'assignee' | null>(null);
 
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const fetchComments = useCallback(async (taskId: number) => {
@@ -162,16 +80,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 
                 const targetDate = new Date();
                 targetDate.setDate(targetDate.getDate() + defaultDueDateOffset);
-                
-                // Format the date to YYYY-MM-DD in the user's selected timezone
-                const formatter = new Intl.DateTimeFormat('en-CA', {
-                    timeZone: timezone,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                });
-                const formattedDate = formatter.format(targetDate);
-                setDueDate(formattedDate);
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
+                setDueDate(formatter.format(targetDate));
                 
                 setAttachments([]);
                 setComments([]);
@@ -179,9 +89,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setAssigneeId(task?.user_id || currentUser?.id || '');
             }
             setNewFiles([]);
-            setNewComment('');
             setEditingTaskId(currentTaskId);
-            setCommentInputVisible(false);
             setValidationError(null);
         }
     } else {
@@ -192,30 +100,15 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId, timezone]);
 
   useEffect(() => {
-    if (validationError === 'title' && title.trim()) {
-      setValidationError(null);
-    }
-  }, [title, validationError]);
-
-  useEffect(() => {
-    if (validationError === 'assignee' && assigneeId) {
-      setValidationError(null);
-    }
-  }, [assigneeId, validationError]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-        setNewFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-    }
-  };
+    if (validationError === 'title' && title.trim()) setValidationError(null);
+    if (validationError === 'assignee' && assigneeId) setValidationError(null);
+  }, [title, assigneeId, validationError]);
 
   const handlePaste = useCallback((event: ClipboardEvent) => {
     const items = event.clipboardData?.files;
     if (items) {
       const files = Array.from(items);
-      if (files.length > 0) {
-        setNewFiles(prev => [...prev, ...files]);
-      }
+      if (files.length > 0) setNewFiles(prev => [...prev, ...files]);
     }
   }, []);
 
@@ -223,200 +116,83 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     const currentModalRef = modalRef.current;
     if (isOpen && currentModalRef) {
         currentModalRef.addEventListener('paste', handlePaste as EventListener);
-        return () => {
-            currentModalRef.removeEventListener('paste', handlePaste as EventListener);
-        };
+        return () => currentModalRef.removeEventListener('paste', handlePaste as EventListener);
     }
   }, [isOpen, handlePaste]);
   
-  const handleRemoveNewFile = (index: number) => {
-      setNewFiles(prev => prev.filter((_, i) => i !== index));
-  };
-  
-  const handleRemoveExistingAttachment = (id: number) => {
-      setAttachments(prev => prev.filter(att => att.id !== id));
-  };
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
-  const getPublicUrl = (filePath: string) => {
-      const { data } = supabase.storage.from('task-attachments').getPublicUrl(filePath);
-      return data.publicUrl;
-  }
-
-  const handlePostComment = async () => {
-    if (!newComment.trim() || !currentUser) return;
+  const handlePostComment = async (content: string) => {
+    if (!content.trim() || !currentUser) return;
     const isNewTask = !task || !('id' in task);
     
     if (isNewTask) {
         setTempNewComments(prev => [...prev, {
-            content: newComment,
+            id: `temp-${Date.now()}`,
+            content: content,
             profiles: currentUser,
             user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            task_id: 0,
         }]);
-        setNewComment('');
     } else {
         setIsPostingComment(true);
-        const { error } = await supabase.from('task_comments').insert({
-          task_id: task.id,
-          user_id: currentUser.id,
-          content: newComment,
-        });
-        
+        const { error } = await supabase.from('task_comments').insert({ task_id: task.id, user_id: currentUser.id, content });
         if (error) {
           console.error('Error posting comment:', error);
           alert(error.message);
         } else {
-          setNewComment('');
           fetchComments(task.id); // Refresh comments
         }
         setIsPostingComment(false);
     }
   };
   
-    const combinedComments = useMemo(() => [
-        ...comments,
-        ...tempNewComments.map((c, i) => ({
-            ...c,
-            id: `temp-${i}`,
-            created_at: new Date().toISOString(),
-            task_id: 0,
-        }))
-    ], [comments, tempNewComments]);
+  const combinedComments = useMemo(() => [...comments, ...tempNewComments], [comments, tempNewComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-        setValidationError('title');
-        return;
-    }
-    if (!assigneeId) {
-        setValidationError('assignee');
-        return;
-    }
+    if (!title.trim()) { setValidationError('title'); return; }
+    if (!assigneeId) { setValidationError('assignee'); return; }
+
     setIsSaving(true);
     const originalAttachmentIds = (task && 'task_attachments' in task) ? task.task_attachments?.map(att => att.id) || [] : [];
     const remainingAttachmentIds = attachments.map(att => att.id);
     const deletedAttachmentIds = originalAttachmentIds.filter(id => !remainingAttachmentIds.includes(id));
     
-    await onSave({
-      title,
-      description,
-      status,
-      priority,
-      due_date: dueDate || null,
-      user_id: assigneeId,
-    }, newFiles, deletedAttachmentIds, tempNewComments.map(c => c.content));
+    await onSave({ title, description, status, priority, due_date: dueDate || null, user_id: assigneeId }, 
+      newFiles, deletedAttachmentIds, tempNewComments.map(c => c.content));
 
     setIsSaving(false);
   };
+  
+  const handleFieldChange = (field: keyof(typeof taskData), value: string | Task['status'] | Task['priority']) => {
+      const setters: Record<string, Function> = {
+          title: setTitle,
+          description: setDescription,
+          status: setStatus,
+          priority: setPriority,
+          dueDate: setDueDate,
+          assigneeId: setAssigneeId
+      };
+      setters[field]?.(value);
+  }
 
-  const statusConfig: { [key in Task['status']]: { label: string; icon: React.FC<any>; color: string; iconClass?: string } } = {
-    todo: { label: t.todo, icon: ClipboardListIcon, color: 'text-orange-600 dark:text-orange-400' },
-    inprogress: { label: t.inprogress, icon: SpinnerIcon, iconClass: 'animate-spin', color: 'text-indigo-600 dark:text-indigo-400' },
-    done: { label: t.done, icon: CheckCircleIcon, color: 'text-green-600 dark:text-green-400' },
-    cancelled: { label: t.cancelled, icon: XCircleIcon, color: 'text-gray-500 dark:text-gray-400' },
-  };
-
-  const priorityConfig: { [key in Task['priority']]: { label: string; icon: string | React.FC<any>; color: string } } = {
-    low: { label: t.low, icon: '💤', color: 'text-green-600 dark:text-green-400' },
-    medium: { label: t.medium, icon: '⚡', color: 'text-yellow-600 dark:text-yellow-400' },
-    high: { label: t.high, icon: '🚨', color: 'text-red-600 dark:text-red-400' },
-  };
-
-  const CustomSelect = ({ value, options, onChange }: { value: string; options: any; onChange: (value: any) => void }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (ref.current && !ref.current.contains(event.target as Node)) setIsOpen(false);
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const selectedOption = options[value];
-    const Icon = selectedOption.icon;
-
-    return (
-        <div className="relative mt-1" ref={ref}>
-            <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left">
-                <div className="flex items-center gap-2">
-                    {typeof Icon === 'string'
-                        ? <span className="text-base">{Icon}</span>
-                        : <Icon size={16} className={`${selectedOption.color} ${selectedOption.iconClass || ''}`} />}
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{selectedOption.label}</span>
-                </div>
-                <ChevronDownIcon size={16} className="text-gray-400" />
-            </button>
-            {isOpen && (
-                <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn">
-                    {Object.entries(options).map(([key, option]: [string, any]) => {
-                        const ItemIcon = option.icon;
-                        return (
-                            <button key={key} type="button" onClick={() => { onChange(key); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20 first:rounded-t-md last:rounded-b-md">
-                                {typeof ItemIcon === 'string'
-                                    ? <span className="text-base">{ItemIcon}</span>
-                                    : <ItemIcon size={16} className={`${option.color} ${option.iconClass || ''}`} />}
-                                <span className="font-medium text-gray-800 dark:text-gray-200">{option.label}</span>
-                            </button>
-                        )
-                    })}
-                </div>
-            )}
-        </div>
-    );
-  };
-
-  const AssigneeSelect = ({ value, options, onChange, hasError }: { value: string; options: Profile[]; onChange: (value: string) => void; hasError: boolean; }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (ref.current && !ref.current.contains(event.target as Node)) setIsOpen(false);
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const selectedOption = options.find(o => o.id === value);
-    const UserAvatar = ({ user }: { user: Profile | undefined }) => {
-        if (!user) return null;
-        return user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name || ''} className="w-5 h-5 rounded-full object-cover" />
-        ) : (
-            <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold text-[10px]">
-                {(user.full_name || '?').charAt(0).toUpperCase()}
-            </div>
-        );
-    };
-
-    return (
-        <div className="relative mt-1" ref={ref}>
-            <button type="button" onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border rounded-md shadow-sm text-left ${hasError ? 'border-red-500 ring-2 ring-red-500/50 animate-shake' : 'border-gray-300 dark:border-gray-600'}`}>
-                <div className="flex items-center gap-2">
-                    <UserAvatar user={selectedOption} />
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{selectedOption?.full_name || t.selectEmployee}</span>
-                </div>
-                <ChevronDownIcon size={16} className="text-gray-400" />
-            </button>
-            {isOpen && (
-                <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-48 overflow-y-auto">
-                    {options.map((option) => (
-                        <button key={option.id} type="button" onClick={() => { onChange(option.id); setIsOpen(false); }} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20">
-                             <UserAvatar user={option} />
-                            <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{option.full_name}</span>
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-  };
-
+  const taskData = { title, description, status, priority, dueDate, assigneeId };
 
   if (!isOpen) return null;
 
   return (
-    <>
     <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto p-2 sm:p-4 flex justify-center animate-fadeIn"
         onClick={onClose}
@@ -441,122 +217,27 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
             </div>
             <div className="flex-grow overflow-y-auto">
               <div className="p-3 sm:px-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-0">
-                {/* Left Column: Task Details */}
                 <div className="space-y-4">
-                     <div>
-                        <input type="text" id="title" placeholder={t.taskTitleLabel} value={title} onChange={e => setTitle(e.target.value)} required className={`block w-full px-3 py-2 bg-white dark:bg-gray-700 border rounded-md shadow-sm text-lg sm:text-xl font-semibold ${validationError === 'title' ? 'border-red-500 ring-2 ring-red-500/50 animate-shake' : 'border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)]'}`} />
-                    </div>
-                     <div>
-                        <textarea id="description" placeholder={t.descriptionLabel} rows={4} value={description} onChange={e => setDescription(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                       <div>
-                            <label htmlFor="assignee" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.assignee}</label>
-                            <AssigneeSelect value={assigneeId} options={allUsers} onChange={setAssigneeId} hasError={validationError === 'assignee'}/>
-                        </div>
-                         <div>
-                            <label htmlFor="dueDate" className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.dueDateLabel}</label>
-                            <div className="relative mt-1">
-                                <input type="date" id="dueDate" value={dueDate} onChange={e => setDueDate(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.status}</label>
-                            <CustomSelect value={status} options={statusConfig} onChange={setStatus} />
-                        </div>
-                        <div>
-                            <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.priority}</label>
-                            <CustomSelect value={priority} options={priorityConfig} onChange={setPriority} />
-                        </div>
-                    </div>
-                    
-                     <div>
-                        <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.attachments}</label>
-                         <div className="flex items-stretch gap-2 sm:gap-3">
-                          <div className="flex-grow border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
-                            <p>{t.pasteOrDrop}</p>
-                          </div>
-                          <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-shrink-0 flex flex-col items-center justify-center gap-1 px-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors">
-                             <PaperclipIcon size={14} /> <span>{t.addAttachment}</span>
-                          </button>
-                        </div>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden"/>
-                        <div className="space-y-2 mt-2">
-                           {attachments.map(att => {
-                                const attachmentWithUrl = {...att, name: att.file_name, size: att.file_size, dataUrl: getPublicUrl(att.file_path)};
-                                return <AttachmentItem key={att.id} file={attachmentWithUrl} onRemove={() => handleRemoveExistingAttachment(att.id)} isNew={false} onPreview={() => setPreviewAttachment(attachmentWithUrl)} />;
-                           })}
-                           {newFiles.map((file, index) => {
-                                const fileWithUrl = {name: file.name, size: file.size, file_type: file.type, dataUrl: URL.createObjectURL(file)};
-                                return <AttachmentItem key={index} file={fileWithUrl} onRemove={() => handleRemoveNewFile(index)} isNew={true} onPreview={() => setPreviewAttachment(fileWithUrl)}/>;
-                           })}
-                        </div>
-                    </div>
+                  <TaskDetailsForm
+                    taskData={taskData}
+                    onFieldChange={handleFieldChange}
+                    allUsers={allUsers}
+                    validationError={validationError}
+                  />
+                  <AttachmentSection
+                    attachments={attachments}
+                    newFiles={newFiles}
+                    onAddNewFiles={(files) => setNewFiles(prev => [...prev, ...files])}
+                    onRemoveNewFile={(index) => setNewFiles(prev => prev.filter((_, i) => i !== index))}
+                    onRemoveExistingAttachment={(id) => setAttachments(prev => prev.filter(att => att.id !== id))}
+                  />
                 </div>
-                {/* Right Column: Comments */}
-                 <div className="flex flex-col mt-4 md:mt-0">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.comments} ({combinedComments.length})</label>
-                    <div className="flex-grow bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 space-y-3 overflow-y-auto min-h-[80px] md:min-h-[400px]">
-                      {combinedComments.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
-                           <ChatBubbleIcon size={32} className="mb-2 opacity-50"/>
-                           <p className="text-sm font-medium">{t.noCommentsYet}</p>
-                        </div>
-                      ) : (
-                          combinedComments.map(comment => (
-                            <div key={comment.id} className="flex items-start gap-2.5">
-                              {comment.profiles?.avatar_url ? (
-                                <img src={comment.profiles.avatar_url} alt={comment.profiles.full_name || ''} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                    {(comment.profiles?.full_name || '?').charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="flex-grow">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{comment.profiles?.full_name}</span>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(comment.created_at, language, timezone)}</span>
-                                </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">{comment.content}</p>
-                              </div>
-                            </div>
-                          ))
-                        )
-                      }
-                    </div>
-                    <div className="mt-2">
-                      {isCommentInputVisible ? (
-                        <div className="flex items-center gap-2">
-                          <textarea 
-                            value={newComment}
-                            onChange={e => setNewComment(e.target.value)}
-                            placeholder={t.addComment}
-                            rows={1}
-                            autoFocus
-                            disabled={isPostingComment}
-                            className="flex-grow block px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm resize-none disabled:bg-gray-100 dark:disabled:bg-gray-800"
-                          />
-                          <button 
-                              type="button" 
-                              onClick={handlePostComment}
-                              disabled={isPostingComment || !newComment.trim()}
-                              className="p-2 rounded-full text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] disabled:opacity-50 transition-opacity transform hover:scale-110"
-                              aria-label={t.post}
-                          >
-                              {isPostingComment ? <SpinnerIcon size={20} className="animate-spin" /> : <SendIcon size={20}/>}
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          type="button"
-                          onClick={() => setCommentInputVisible(true)}
-                          className="w-full text-left px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-500 dark:text-gray-400 hover:border-[var(--accent-color)] dark:hover:border-[var(--accent-color-dark)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm transition-colors"
-                        >
-                            {t.addComment}
-                        </button>
-                      )}
-                    </div>
+                <div className="flex flex-col mt-4 md:mt-0">
+                  <CommentSection
+                    comments={combinedComments}
+                    isPostingComment={isPostingComment}
+                    onPostComment={handlePostComment}
+                  />
                 </div>
               </div>
             </div>
@@ -569,8 +250,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         </form>
       </div>
     </div>
-    {previewAttachment && <AttachmentPreviewModal attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}
-    </>
   );
 };
 

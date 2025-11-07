@@ -1,35 +1,29 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSettings } from '../context/SettingsContext';
-import { supabase } from '../lib/supabase';
-import type { Task, TimeLog, Profile } from '../types';
-import type { Session } from '@supabase/supabase-js';
-import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from './Icons';
-import CalendarView from './CalendarView';
-import PerformanceSummary, { TimeRange } from './PerformanceSummary';
-import FilterBar, { Filters } from './FilterBar';
-import type { DataChange, TaskCounts } from '../App';
-import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../lib/taskUtils';
-import { TaskBoardSkeleton } from './Skeleton';
-import TaskColumn from './TaskColumn';
-import DashboardViewToggle from './dashboard/DashboardViewToggle';
-import { CalendarSortState } from './CalendarView';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '../../../lib/supabase';
+import { useSettings } from '../../../context/SettingsContext';
+import type { Profile, Task, TimeLog } from '../../../types';
+import { PlusIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
+import CalendarView, { CalendarSortState } from '../../CalendarView';
+import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
+import FilterBar, { Filters } from '../../FilterBar';
+import type { DataChange, TaskCounts } from '../../../App';
+import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
+import { TaskBoardSkeleton } from '../../Skeleton';
+import TaskColumn from '../../TaskColumn';
+import DashboardViewToggle from '../DashboardViewToggle';
 
-
-interface TaskDashboardProps {
-    session: Session;
+interface EmployeeTaskViewProps {
+    employee: Profile;
     lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
-    onClearCancelledTasks: (tasks: Task[]) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => Promise<boolean>;
-    onStartTimer: (task: Task) => void;
-    onStopTimer: (timeLog: TimeLog) => void;
-    activeTimer: TimeLog | null;
+    onClearCancelledTasks: (tasks: Task[]) => void;
     allUsers: Profile[];
     setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
+const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
     const { t, timezone } = useSettings();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,59 +37,51 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         done: { field: 'updated_at', direction: 'desc' },
         cancelled: { field: 'updated_at', direction: 'desc' },
     });
-    
+
     const [calendarSort, setCalendarSort] = useState<CalendarSortState>({
         id: 'default',
         config: { field: 'priority', direction: 'desc' }
     });
     
-    // State for time range filtering
     const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
     const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-
     const fetchTasks = useCallback(async (userId: string) => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('tasks')
-            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
-            .or(`user_id.eq.${userId},created_by.eq.${userId}`)
-            .order('priority', { ascending: false })
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            console.error("Error fetching tasks:", error);
-            setTasks([]);
-        } else {
-            setTasks(data as Task[]);
-        }
+        const { data, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('user_id', userId).order('priority', { ascending: false }).order('created_at', { ascending: true });
+        if (error) console.error("Error fetching tasks:", error); else setTasks((data as Task[]) || []);
         setLoading(false);
     }, []);
 
-    useEffect(() => {
-        if (session?.user) {
-            fetchTasks(session.user.id);
-        }
-    }, [session, fetchTasks]);
+    useEffect(() => { fetchTasks(employee.id); }, [employee.id, fetchTasks]);
 
     useEffect(() => {
         if (!lastDataChange) return;
+        const isRelevant = (task: Partial<Task>) => task.user_id === employee.id;
 
         const { type, payload } = lastDataChange;
-
         switch (type) {
             case 'add':
-                setTasks(prev => {
-                    if (prev.some(t => t.id === payload.id)) {
-                        return prev;
-                    }
-                    return [payload, ...prev];
-                });
+                if (isRelevant(payload)) {
+                    setTasks(prev => {
+                        if (prev.some(task => task.id === payload.id)) return prev;
+                        return [payload, ...prev];
+                    });
+                }
                 break;
             case 'update':
-                setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
+                const isNowRelevant = isRelevant(payload);
+                const taskExistsInState = tasks.some(t => t.id === payload.id);
+
+                if (isNowRelevant && !taskExistsInState) { // Reassigned TO this employee
+                    setTasks(prev => [payload, ...prev]);
+                } else if (!isNowRelevant && taskExistsInState) { // Reassigned FROM this employee
+                    setTasks(prev => prev.filter(t => t.id !== payload.id));
+                } else if (isNowRelevant && taskExistsInState) { // Normal update
+                    setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
+                }
                 break;
             case 'delete':
                 setTasks(prev => prev.filter(t => t.id !== payload.id));
@@ -103,13 +89,13 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             case 'delete_many':
                 setTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
                 break;
-            case 'batch_update': // A generic trigger to re-fetch, e.g., for timers
-                if(session?.user) fetchTasks(session.user.id);
+            case 'batch_update':
+                fetchTasks(employee.id);
                 break;
         }
-    }, [lastDataChange, session, fetchTasks]);
+    }, [lastDataChange, employee.id, fetchTasks, tasks]);
 
-    const { tasksForSummaryAndChart } = useMemo(() => {
+     const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date;
@@ -173,7 +159,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         return { tasksForSummaryAndChart: filtered };
     }, [tasks, timeRange, customMonth, customStartDate, customEndDate]);
 
-
+    
     const filteredTasksForBoard = useMemo(() => {
         const today = getTodayDateString(timezone);
         const endOfWeek = getEndOfWeekDateString(timezone);
@@ -193,7 +179,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                                       (task.task_comments && task.task_comments.some(c => c.content.toLowerCase().includes(lowerCaseSearch)));
                 }
             }
-            
+
             const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
             const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
             
@@ -219,20 +205,20 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch;
         });
     }, [tasks, filters, timezone]);
-    
+
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
         const taskToMove = tasks.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-            const originalTasks = tasks;
+             const originalTasks = tasks;
             const updatedTasks = originalTasks.map(t =>
                 t.id === draggedTaskId ? { ...t, status: status } : t
             );
-            setTasks(updatedTasks); // Optimistic UI update
+            setTasks(updatedTasks);
 
             onUpdateStatus(taskToMove, status).then(success => {
                 if (!success) {
-                    setTasks(originalTasks); // Revert on failure
+                    setTasks(originalTasks);
                 }
             });
         }
@@ -254,7 +240,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             cancelled: sortTasks(grouped.cancelled, sortConfigs.cancelled),
         };
     }, [filteredTasksForBoard, sortConfigs]);
-    
+
     useEffect(() => {
         setTaskCounts({
             todo: todo.length,
@@ -262,7 +248,8 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             done: done.length,
         });
     }, [todo, inprogress, done, setTaskCounts]);
-    
+
+
     const renderBoardColumns = () => {
         const statusConfig = {
             todo: { icon: <ClipboardListIcon size={16} className="text-orange-500" />, borderColor: 'border-orange-500', title: t.todo },
@@ -276,7 +263,6 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             { tasks: done, status: 'done' },
             { tasks: cancelled, status: 'cancelled' },
         ];
-
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                 {columns.map(({ tasks, status }) => (
@@ -300,17 +286,14 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                     />
                 ))}
             </div>
-        );
-    };
-
-    if (!session) {
-         return <div className="text-center p-8">{t.signInToManageTasks}</div>;
+        )
     }
-    
+
+
     return (
-        <div className="w-full animate-fadeInUp space-y-6">
+        <div className="w-full space-y-6">
             <PerformanceSummary
-                title={t.performanceSummary}
+                title={t.tasksFor(employee.full_name || "...")}
                 tasks={tasksForSummaryAndChart}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
@@ -320,12 +303,16 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                 setCustomStartDate={setCustomStartDate}
                 customEndDate={customEndDate}
                 setCustomEndDate={setCustomEndDate}
-             >
+            >
+                <button onClick={() => onEditTask({ user_id: employee.id })} className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-sm transform transition-all duration-300 hover:scale-105 hover:shadow-md focus:outline-none">
+                    <PlusIcon size={14} />
+                    <span className="hidden sm:inline">{t.addNewTask}</span>
+                </button>
                 <DashboardViewToggle view={view} setView={setView} />
             </PerformanceSummary>
             
             <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
-
+            
             {loading ? (
                 <TaskBoardSkeleton />
             ) : view === 'board' ? (
@@ -342,4 +329,4 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     );
 };
 
-export default EmployeeDashboard;
+export default EmployeeTaskView;

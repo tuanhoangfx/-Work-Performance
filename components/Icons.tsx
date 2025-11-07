@@ -384,3 +384,24 @@ export const ArrowDownIcon: React.FC<IconProps> = ({ className, size = 24 }) => 
     <polyline points="19 12 12 19 5 12"></polyline>
   </svg>
 );
+
+export const SearchIcon: React.FC<IconProps> = ({ className, size = 24 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="11" cy="11" r="8"></circle>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+);
+
+export const KeyboardIcon: React.FC<IconProps> = ({ className, size = 24 }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="2" y="7" width="20" height="13" rx="2" ry="2"></rect>
+        <path d="M6 11h.01"></path>
+        <path d="M10 11h.01"></path>
+        <path d="M14 11h.01"></path>
+        <path d="M18 11h.01"></path>
+        <path d="M6 15h.01"></path>
+        <path d="M10 15h.01"></path>
+        <path d="M14 15h.01"></path>
+        <path d="M18 15h.01"></path>
+    </svg>
+);

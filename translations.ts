@@ -193,6 +193,7 @@ const en: Translation = {
   timezone: "Timezone",
 
   // User Guide
+  userGuide_searchPlaceholder: "Search guide...",
   userGuide_s1_title: "Getting Started",
   userGuide_s1_l1_strong: "Sign In:",
   userGuide_s1_l1_text: "Log in to access your personal task board.",
@@ -219,12 +220,31 @@ const en: Translation = {
   userGuide_s4_l2_strong: "Appearance:",
   userGuide_s4_l2_text: "Use the settings icon to switch between light/dark themes and change the application's language.",
 
+  userGuide_s5_title: "Keyboard Shortcuts",
+  userGuide_s5_l1_strong: "N:",
+  userGuide_s5_l1_text: "Press 'N' to open the 'Add New Task' modal.",
+  userGuide_s5_l2_strong: "F:",
+  userGuide_s5_l2_text: "Press 'F' to focus the main search bar.",
+  userGuide_s5_l3_strong: "Esc:",
+  userGuide_s5_l3_text: "Press 'Escape' to close any open modal window.",
+
   // Filters
-  searchPlaceholder: "Search by title, description, or ID...",
+  searchPlaceholder: "Search by title, description, ID, or comments...",
   filterByCreator: "Creator",
   allCreators: "All Creators",
   filterByPriority: "Priority",
   allPriorities: "All Priorities",
+  filterByDueDate: "Due Date",
+  allDates: "All Dates",
+  dueToday: "Due Today",
+  dueThisWeek: "Due This Week",
+  
+  // Calendar Sorting
+  sortBy: "Sort by",
+  sortDefault: "Default",
+  sortStatus: "Status",
+  sortPriority: "Priority",
+  sortCreationDate: "Creation Date",
 };
 
 const vi: Translation = {
@@ -420,6 +440,7 @@ const vi: Translation = {
   timezone: "Múi giờ",
 
   // User Guide
+  userGuide_searchPlaceholder: "Tìm kiếm hướng dẫn...",
   userGuide_s1_title: "Bắt đầu",
   userGuide_s1_l1_strong: "Đăng nhập:",
   userGuide_s1_l1_text: "Đăng nhập để truy cập bảng công việc cá nhân của bạn.",
@@ -446,12 +467,32 @@ const vi: Translation = {
   userGuide_s4_l2_strong: "Giao diện:",
   userGuide_s4_l2_text: "Sử dụng biểu tượng cài đặt để chuyển đổi giữa giao diện sáng/tối và thay đổi ngôn ngữ của ứng dụng.",
   
+  userGuide_s5_title: "Phím tắt",
+  userGuide_s5_l1_strong: "N:",
+  userGuide_s5_l1_text: "Nhấn 'N' để mở cửa sổ 'Thêm Công Việc Mới'.",
+  userGuide_s5_l2_strong: "F:",
+  userGuide_s5_l2_text: "Nhấn 'F' để trỏ chuột vào thanh tìm kiếm chính.",
+  userGuide_s5_l3_strong: "Esc:",
+  userGuide_s5_l3_text: "Nhấn 'Escape' để đóng bất kỳ cửa sổ nào đang mở.",
+
   // Filters
-  searchPlaceholder: "Tìm theo tiêu đề, mô tả, hoặc ID...",
+  searchPlaceholder: "Tìm theo tiêu đề, mô tả, ID, hoặc bình luận...",
   filterByCreator: "Người giao",
   allCreators: "Tất cả người giao",
   filterByPriority: "Ưu tiên",
   allPriorities: "Tất cả ưu tiên",
+  filterByDueDate: "Ngày hết hạn",
+  allDates: "Tất cả ngày",
+  // FIX: Removed duplicate 'overdue' key that caused a compilation error. The 'overdue' key is already defined in the 'Task Status' section.
+  dueToday: "Hết hạn hôm nay",
+  dueThisWeek: "Hết hạn trong tuần",
+  
+  // Calendar Sorting
+  sortBy: "Sắp xếp theo",
+  sortDefault: "Mặc định",
+  sortStatus: "Trạng thái",
+  sortPriority: "Ưu tiên",
+  sortCreationDate: "Ngày tạo",
 };
 
 const th: Translation = {

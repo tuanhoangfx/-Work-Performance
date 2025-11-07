@@ -296,6 +296,7 @@ export type Translation = {
   timezone: string;
 
   // User Guide
+  userGuide_searchPlaceholder: string;
   userGuide_s1_title: string;
   userGuide_s1_l1_strong: string;
   userGuide_s1_l1_text: string;
@@ -322,10 +323,29 @@ export type Translation = {
   userGuide_s4_l2_strong: string;
   userGuide_s4_l2_text: string;
 
+  userGuide_s5_title: string;
+  userGuide_s5_l1_strong: string;
+  userGuide_s5_l1_text: string;
+  userGuide_s5_l2_strong: string;
+  userGuide_s5_l2_text: string;
+  userGuide_s5_l3_strong: string;
+  userGuide_s5_l3_text: string;
+
   // Filters
   searchPlaceholder: string;
   filterByCreator: string;
   allCreators: string;
   filterByPriority: string;
   allPriorities: string;
+  filterByDueDate: string;
+  allDates: string;
+  dueToday: string;
+  dueThisWeek: string;
+  
+  // Calendar Sorting
+  sortBy: string;
+  sortDefault: string;
+  sortStatus: string;
+  sortPriority: string;
+  sortCreationDate: string;
 };

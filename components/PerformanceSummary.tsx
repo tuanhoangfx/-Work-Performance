@@ -1,7 +1,10 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from './Icons';
+import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from './Icons';
+import StatCard from './performance-summary/StatCard';
+import MonthPicker from './performance-summary/MonthPicker';
+import TimeRangeSelect from './performance-summary/TimeRangeSelect';
 
 export type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';
 
@@ -18,128 +21,6 @@ interface PerformanceSummaryProps {
   customEndDate: string;
   setCustomEndDate: (date: string) => void;
 }
-
-
-const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string | number; }> = React.memo(({ icon, label, value }) => (
-    <div className="bg-white dark:bg-gray-800/80 rounded-lg shadow p-3 flex items-center gap-3">
-        <div className="p-2 bg-gray-100 dark:bg-gray-700/50 rounded-full">{icon}</div>
-        <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-            <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{value}</p>
-        </div>
-    </div>
-));
-
-const MonthPicker: React.FC<{ value: string, onChange: (value: string) => void }> = ({ value, onChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const pickerRef = useRef<HTMLDivElement>(null);
-    const [currentYear, setDisplayYear] = useState(() => new Date(value + '-01').getFullYear());
-    const selectedMonth = new Date(value + '-01').getMonth();
-
-    const { t, language } = useSettings();
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isOpen]);
-    
-    const months = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(currentYear, i).toLocaleString(language, { month: 'short' })), [currentYear, language]);
-    
-    const formattedValue = new Date(value + '-01').toLocaleString(language, { month: 'long', year: 'numeric' });
-
-    return (
-        <div className="relative" ref={pickerRef}>
-            <button 
-                type="button" 
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-44 flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm"
-            >
-                <div className="flex items-center gap-2 overflow-hidden">
-                    <CalendarIcon size={16} className="text-gray-500 flex-shrink-0" />
-                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{formattedValue}</span>
-                </div>
-                <ChevronDownIcon size={16} className="text-gray-400 flex-shrink-0" />
-            </button>
-            {isOpen && (
-                <div className="absolute z-40 top-full mt-2 w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-xl border dark:border-gray-700 p-3 animate-fadeIn">
-                    <div className="flex items-center justify-between mb-3">
-                        <button type="button" onClick={() => setDisplayYear(y => y - 1)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeftIcon size={18}/></button>
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">{currentYear}</span>
-                        <button type="button" onClick={() => setDisplayYear(y => y + 1)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRightIcon size={18}/></button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                        {months.map((month, index) => (
-                            <button
-                                key={month}
-                                type="button"
-                                onClick={() => {
-                                    onChange(`${currentYear}-${(index + 1).toString().padStart(2, '0')}`);
-                                    setIsOpen(false);
-                                }}
-                                className={`p-2 text-sm rounded-md transition-colors text-gray-800 dark:text-gray-200 ${currentYear === new Date(value + '-01').getFullYear() && selectedMonth === index ? 'bg-[var(--accent-color)] text-white font-bold' : 'hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20'}`}
-                            >
-                                {month}
-                            </button>
-                        ))}
-                    </div>
-                     <div className="flex justify-between items-center mt-3 pt-2 border-t dark:border-gray-700">
-                        <button type="button" onClick={() => { onChange(new Date().toISOString().slice(0, 7)); setIsOpen(false); }} className="text-xs font-semibold text-[var(--accent-color)] hover:underline">{t.thisMonth}</button>
-                     </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const TimeRangeSelect: React.FC<{ value: TimeRange; onChange: (range: TimeRange) => void; options: { value: TimeRange; label: string }[] }> = ({ value, onChange, options }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (ref.current && !ref.current.contains(event.target as Node)) {
-            setIsOpen(false);
-        }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(o => o.value === value) || options[0];
-
-  return (
-    <div className="relative w-44" ref={ref}>
-        <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm">
-            <div className="flex items-center gap-2 overflow-hidden">
-                <CalendarIcon size={16} className="text-gray-500 flex-shrink-0"/>
-                <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{selectedOption.label}</span>
-            </div>
-            <ChevronDownIcon size={16} className="text-gray-400 flex-shrink-0"/>
-        </button>
-        {isOpen && (
-            <div className="absolute z-20 top-full mt-1 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-md shadow-lg border dark:border-gray-600 animate-fadeIn max-h-60 overflow-y-auto">
-                {options.map((option) => (
-                    <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => { onChange(option.value); setIsOpen(false); }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-[var(--accent-color)]/10 dark:hover:bg-[var(--accent-color)]/20"
-                    >
-                        <span>{option.label}</span>
-                    </button>
-                ))}
-            </div>
-        )}
-    </div>
-  );
-};
-
 
 const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({
   title,

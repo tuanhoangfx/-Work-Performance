@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Profile } from '../types';
-import { ChevronDownIcon, UsersIcon } from './Icons';
+import { ChevronDownIcon, UsersIcon, CalendarIcon } from './Icons';
+import Avatar from './common/Avatar';
 
 export interface Filters {
   searchTerm: string;
   creatorId: string;
   priority: 'all' | 'low' | 'medium' | 'high';
+  dueDate: 'all' | 'overdue' | 'today' | 'this_week';
 }
 
 interface FilterBarProps {
@@ -71,16 +73,6 @@ const FilterSelect: React.FC<{
   );
 };
 
-const Avatar: React.FC<{ user: Profile }> = ({ user }) => {
-    return user.avatar_url ? (
-        <img src={user.avatar_url} alt={user.full_name || ''} className="w-5 h-5 rounded-full object-cover" />
-    ) : (
-        <div className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold text-[10px]">
-            {(user.full_name || '?').charAt(0).toUpperCase()}
-        </div>
-    );
-};
-
 
 const FilterBar: React.FC<FilterBarProps> = ({ filters, onFilterChange, allUsers }) => {
   const { t } = useSettings();
@@ -99,7 +91,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFilterChange, allUsers
   
   const creatorOptions: FilterOption[] = [
       { value: 'all', label: t.allCreators },
-      ...allUsers.map(user => ({ value: user.id, label: user.full_name, icon: <Avatar user={user} /> }))
+      ...allUsers.map(user => ({ value: user.id, label: user.full_name || '', icon: <Avatar user={user} title={user.full_name || ''} size={20} /> }))
+  ];
+  
+  const dueDateOptions: FilterOption[] = [
+    { value: 'all', label: t.allDates },
+    { value: 'overdue', label: t.overdue, icon: <span className="text-base">⏰</span> },
+    { value: 'today', label: t.dueToday, icon: <span className="text-base">🗓️</span> },
+    { value: 'this_week', label: t.dueThisWeek, icon: <span className="text-base">📅</span> },
   ];
 
   return (
@@ -112,6 +111,14 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, onFilterChange, allUsers
           value={filters.searchTerm}
           onChange={handleInputChange}
           className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
+        />
+      </div>
+       <div className="flex-shrink-0">
+        <FilterSelect
+            defaultIcon={<CalendarIcon size={16}/>}
+            value={filters.dueDate}
+            onChange={(value) => onFilterChange({ ...filters, dueDate: value as Filters['dueDate'] })}
+            options={dueDateOptions}
         />
       </div>
       <div className="flex-shrink-0">

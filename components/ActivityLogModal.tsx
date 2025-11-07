@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { XIcon, SpinnerIcon } from './Icons';
 import type { ActivityLog } from '../types';
 import { formatAbsoluteDateTime } from '../lib/taskUtils';
+import Avatar from './common/Avatar';
 
 interface ActivityLogModalProps {
   isOpen: boolean;
@@ -36,6 +37,18 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
             fetchLogs();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     const formatLogMessage = (log: ActivityLog) => {
         const user = log.profiles?.full_name || t.a_user;
@@ -107,13 +120,7 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                             {logs.map(log => (
                                 <li key={log.id} className="flex items-start gap-3">
                                     <div className="flex-shrink-0 mt-0.5">
-                                        {log.profiles?.avatar_url ? (
-                                            <img src={log.profiles.avatar_url} alt={log.profiles.full_name || undefined} className="w-7 h-7 rounded-full object-cover" />
-                                        ) : (
-                                            <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold">
-                                                {(log.profiles?.full_name || '?').charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={28} />}
                                     </div>
                                     <div className="flex-grow">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug"

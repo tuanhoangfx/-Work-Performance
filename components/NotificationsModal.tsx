@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { XIcon, SpinnerIcon, BellIcon } from './Icons';
 import type { Notification } from '../types';
 import { formatAbsoluteDateTime } from '../lib/taskUtils';
+import Avatar from './common/Avatar';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -44,6 +45,18 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
             fetchNotifications();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     const handleMarkAllAsRead = async () => {
         const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
@@ -155,13 +168,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                                     onClick={() => handleNotificationClick(notification)}
                                 >
                                     <div className="flex-shrink-0 mt-0.5">
-                                        {notification.profiles?.avatar_url ? (
-                                            <img src={notification.profiles.avatar_url} alt={notification.profiles.full_name || ''} className="w-8 h-8 rounded-full object-cover" />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold">
-                                                {(notification.profiles?.full_name || '?').charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        {notification.profiles && <Avatar user={notification.profiles} title={notification.profiles.full_name || ''} size={32} />}
                                     </div>
                                     <div className="flex-grow">
                                         <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug"

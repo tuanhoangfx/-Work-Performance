@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from './lib/supabase';
 import type { Task } from './types';
 import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './components/Icons';
 import { SettingsContext, ColorScheme } from './context/SettingsContext';
+import { ToastProvider } from './context/ToastContext';
 
 // Custom Hooks for logic separation
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
@@ -26,6 +27,7 @@ const TaskModal = lazy(() => import('./components/TaskModal'));
 const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
 const NotificationsModal = lazy(() => import('./components/NotificationsModal'));
 const ActionModal = lazy(() => import('./components/ActionModal'));
+const ToastContainer = lazy(() => import('./components/ToastContainer'));
 
 export type DataChange = {
   type: 'add' | 'update' | 'delete' | 'delete_many' | 'batch_update';
@@ -97,6 +99,82 @@ const AppContent: React.FC = () => {
       notifyDataChange: notifyDataChange,
       t
   });
+
+  const canAddTask = session && profile && !(profile.role === 'admin' && isAdminView);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        const target = event.target as HTMLElement;
+        const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+        // Don't trigger shortcuts if a modifier key is pressed (e.g., for Ctrl+F)
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+
+        // 'N' for new task
+        if (event.key.toLowerCase() === 'n' && !isTyping && canAddTask) {
+            event.preventDefault();
+            // Check if any modal is open before opening a new one
+            const anyModalOpen = modals.auth.isOpen || modals.account.isOpen || modals.userGuide.isOpen || modals.task.isOpen || modals.activityLog.isOpen || modals.notifications.isOpen || modals.action.isOpen;
+            if (!anyModalOpen) {
+                modals.task.open(null);
+            }
+        }
+
+        // 'F' to focus search
+        if (event.key.toLowerCase() === 'f' && !isTyping) {
+            event.preventDefault();
+            const searchInput = document.querySelector<HTMLInputElement>('input[name="searchTerm"]');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [canAddTask, modals]);
+
+  useEffect(() => {
+    if (!session || !isSupabaseConfigured) {
+        return;
+    }
+
+    const channel = supabase.channel('public:tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+        async (payload) => {
+          console.log('Realtime change received!', payload);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const { data: task, error } = await supabase
+              .from('tasks')
+              .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (error) {
+              console.error('Error fetching task from realtime update:', error);
+              return;
+            }
+            if (task) {
+              notifyDataChange({ type: payload.eventType === 'INSERT' ? 'add' : 'update', payload: task });
+            }
+          } else if (payload.eventType === 'DELETE') {
+            notifyDataChange({ type: 'delete', payload: { id: (payload.old as any).id } });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    }
+  }, [session, notifyDataChange]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -216,6 +294,7 @@ const AppContent: React.FC = () => {
   return (
     <SettingsContext.Provider value={{ theme, setTheme, colorScheme, setColorScheme, language, setLanguage, t, defaultDueDateOffset, setDefaultDueDateOffset, timezone, setTimezone }}>
       <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans flex flex-col">
+        <ToastContainer />
         <Header 
           session={session}
           profile={profile}
@@ -288,7 +367,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </Suspense>
   );
 }

@@ -62,6 +62,18 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
         }
     }, [isOpen, session, getProfile]);
     
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setAvatarFile(e.target.files[0]);
