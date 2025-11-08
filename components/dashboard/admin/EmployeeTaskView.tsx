@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
-import type { Profile, Task, TimeLog } from '../../../types';
+import type { Profile, Task } from '../../../types';
 import { PlusIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import CalendarView, { CalendarSortState } from '../../CalendarView';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
-import type { DataChange, TaskCounts } from '../../../App';
+import { useTasks } from '../../../context/TaskContext';
 import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
@@ -14,19 +13,17 @@ import DashboardViewToggle from '../DashboardViewToggle';
 
 interface EmployeeTaskViewProps {
     employee: Profile;
-    lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => Promise<boolean>;
     onClearCancelledTasks: (tasks: Task[]) => void;
     allUsers: Profile[];
-    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
+const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t, timezone } = useSettings();
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { allTasks, isLoading } = useTasks();
+
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
@@ -48,52 +45,9 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const fetchTasks = useCallback(async (userId: string) => {
-        setLoading(true);
-        const { data, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('user_id', userId).order('priority', { ascending: false }).order('created_at', { ascending: true });
-        if (error) console.error("Error fetching tasks:", error); else setTasks((data as Task[]) || []);
-        setLoading(false);
-    }, []);
-
-    useEffect(() => { fetchTasks(employee.id); }, [employee.id, fetchTasks]);
-
-    useEffect(() => {
-        if (!lastDataChange) return;
-        const isRelevant = (task: Partial<Task>) => task.user_id === employee.id;
-
-        const { type, payload } = lastDataChange;
-        switch (type) {
-            case 'add':
-                if (isRelevant(payload)) {
-                    setTasks(prev => {
-                        if (prev.some(task => task.id === payload.id)) return prev;
-                        return [payload, ...prev];
-                    });
-                }
-                break;
-            case 'update':
-                const isNowRelevant = isRelevant(payload);
-                const taskExistsInState = tasks.some(t => t.id === payload.id);
-
-                if (isNowRelevant && !taskExistsInState) { // Reassigned TO this employee
-                    setTasks(prev => [payload, ...prev]);
-                } else if (!isNowRelevant && taskExistsInState) { // Reassigned FROM this employee
-                    setTasks(prev => prev.filter(t => t.id !== payload.id));
-                } else if (isNowRelevant && taskExistsInState) { // Normal update
-                    setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
-                }
-                break;
-            case 'delete':
-                setTasks(prev => prev.filter(t => t.id !== payload.id));
-                break;
-            case 'delete_many':
-                setTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
-                break;
-            case 'batch_update':
-                fetchTasks(employee.id);
-                break;
-        }
-    }, [lastDataChange, employee.id, fetchTasks, tasks]);
+    const tasks = useMemo(() => {
+      return allTasks.filter(task => task.user_id === employee.id);
+    }, [allTasks, employee.id]);
 
      const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
@@ -210,17 +164,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
         if (draggedTaskId === null) return;
         const taskToMove = tasks.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-             const originalTasks = tasks;
-            const updatedTasks = originalTasks.map(t =>
-                t.id === draggedTaskId ? { ...t, status: status } : t
-            );
-            setTasks(updatedTasks);
-
-            onUpdateStatus(taskToMove, status).then(success => {
-                if (!success) {
-                    setTasks(originalTasks);
-                }
-            });
+            onUpdateStatus(taskToMove, status);
         }
         setDraggedTaskId(null);
         setDragOverStatus(null);
@@ -240,15 +184,6 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
             cancelled: sortTasks(grouped.cancelled, sortConfigs.cancelled),
         };
     }, [filteredTasksForBoard, sortConfigs]);
-
-    useEffect(() => {
-        setTaskCounts({
-            todo: todo.length,
-            inprogress: inprogress.length,
-            done: done.length,
-        });
-    }, [todo, inprogress, done, setTaskCounts]);
-
 
     const renderBoardColumns = () => {
         const statusConfig = {
@@ -313,7 +248,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
             
             <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
             
-            {loading ? (
+            {isLoading ? (
                 <TaskBoardSkeleton />
             ) : view === 'board' ? (
                 renderBoardColumns()

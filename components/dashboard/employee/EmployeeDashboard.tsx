@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
-import { supabase } from '../../../lib/supabase';
 import type { Task, TimeLog, Profile } from '../../../types';
 import type { Session } from '@supabase/supabase-js';
 import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import CalendarView from '../../CalendarView';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
-import type { DataChange, TaskCounts } from '../../../App';
+import { useTasks } from '../../../context/TaskContext';
 import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
@@ -17,7 +16,6 @@ import { CalendarSortState } from '../../CalendarView';
 
 interface TaskDashboardProps {
     session: Session;
-    lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onClearCancelledTasks: (tasks: Task[]) => void;
@@ -26,13 +24,12 @@ interface TaskDashboardProps {
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
     allUsers: Profile[];
-    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
     const { t, timezone } = useSettings();
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { allTasks, isLoading } = useTasks();
+    
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
@@ -49,65 +46,15 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         config: { field: 'priority', direction: 'desc' }
     });
     
-    // State for time range filtering
     const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
     const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-
-    const fetchTasks = useCallback(async (userId: string) => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('tasks')
-            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
-            .or(`user_id.eq.${userId},created_by.eq.${userId}`)
-            .order('priority', { ascending: false })
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            console.error("Error fetching tasks:", error);
-            setTasks([]);
-        } else {
-            setTasks(data as Task[]);
-        }
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-        if (session?.user) {
-            fetchTasks(session.user.id);
-        }
-    }, [session, fetchTasks]);
-
-    useEffect(() => {
-        if (!lastDataChange) return;
-
-        const { type, payload } = lastDataChange;
-
-        switch (type) {
-            case 'add':
-                setTasks(prev => {
-                    if (prev.some(t => t.id === payload.id)) {
-                        return prev;
-                    }
-                    return [payload, ...prev];
-                });
-                break;
-            case 'update':
-                setTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
-                break;
-            case 'delete':
-                setTasks(prev => prev.filter(t => t.id !== payload.id));
-                break;
-            case 'delete_many':
-                setTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
-                break;
-            case 'batch_update': // A generic trigger to re-fetch, e.g., for timers
-                if(session?.user) fetchTasks(session.user.id);
-                break;
-        }
-    }, [lastDataChange, session, fetchTasks]);
+    const tasks = useMemo(() => {
+        if (!session?.user) return [];
+        return allTasks.filter(task => task.user_id === session.user.id || task.created_by === session.user.id);
+    }, [allTasks, session]);
 
     const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
@@ -224,17 +171,8 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         if (draggedTaskId === null) return;
         const taskToMove = tasks.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-            const originalTasks = tasks;
-            const updatedTasks = originalTasks.map(t =>
-                t.id === draggedTaskId ? { ...t, status: status } : t
-            );
-            setTasks(updatedTasks); // Optimistic UI update
-
-            onUpdateStatus(taskToMove, status).then(success => {
-                if (!success) {
-                    setTasks(originalTasks); // Revert on failure
-                }
-            });
+            // Optimistic update handled by real-time subscription in TaskProvider
+            onUpdateStatus(taskToMove, status);
         }
         setDraggedTaskId(null);
         setDragOverStatus(null);
@@ -254,14 +192,6 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             cancelled: sortTasks(grouped.cancelled, sortConfigs.cancelled),
         };
     }, [filteredTasksForBoard, sortConfigs]);
-    
-    useEffect(() => {
-        setTaskCounts({
-            todo: todo.length,
-            inprogress: inprogress.length,
-            done: done.length,
-        });
-    }, [todo, inprogress, done, setTaskCounts]);
     
     const renderBoardColumns = () => {
         const statusConfig = {
@@ -326,7 +256,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
             
             <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
 
-            {loading ? (
+            {isLoading ? (
                 <TaskBoardSkeleton />
             ) : view === 'board' ? (
                 renderBoardColumns()

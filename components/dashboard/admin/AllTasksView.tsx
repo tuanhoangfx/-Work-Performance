@@ -1,29 +1,26 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../../../lib/supabase';
+import React, { useState, useMemo } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import type { Profile, Task } from '../../../types';
 import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
-import type { DataChange, TaskCounts } from '../../../App';
+import { useTasks } from '../../../context/TaskContext';
 import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
 
 interface AllTasksViewProps {
-    lastDataChange: DataChange | null;
     allUsers: Profile[];
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => Promise<boolean>;
     onClearCancelledTasks: (tasks: Task[]) => void;
-    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
+const AllTasksView: React.FC<AllTasksViewProps> = ({ allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
     const { t, timezone } = useSettings();
-    const [allTasks, setAllTasks] = useState<Task[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { allTasks, isLoading } = useTasks();
+
     const [filterUserId, setFilterUserId] = useState<string>('all');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
@@ -40,45 +37,6 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-
-    const fetchAllTasks = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
-        if (error) console.error("Error fetching all tasks:", error);
-        else setAllTasks(data as Task[] || []);
-        setLoading(false);
-    }, []);
-
-    useEffect(() => { fetchAllTasks(); }, [fetchAllTasks]);
-    
-    useEffect(() => {
-        if (!lastDataChange) return;
-
-        const { type, payload } = lastDataChange;
-        switch (type) {
-            case 'add':
-                setAllTasks(prev => {
-                    if (prev.some(t => t.id === payload.id)) {
-                        return prev;
-                    }
-                    return [payload, ...prev];
-                });
-                break;
-            case 'update':
-                setAllTasks(prev => prev.map(t => t.id === payload.id ? payload : t));
-                break;
-            case 'delete':
-                setAllTasks(prev => prev.filter(t => t.id !== payload.id));
-                break;
-            case 'delete_many':
-                setAllTasks(prev => prev.filter(t => !payload.ids.includes(t.id)));
-                break;
-            case 'batch_update':
-                fetchAllTasks();
-                break;
-        }
-    }, [lastDataChange, fetchAllTasks]);
-    
     const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
         let startDate: Date;
@@ -196,17 +154,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
         if (draggedTaskId === null) return;
         const taskToMove = allTasks.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-            const originalTasks = allTasks;
-            const updatedTasks = originalTasks.map(t =>
-                t.id === draggedTaskId ? { ...t, status: status } : t
-            );
-            setAllTasks(updatedTasks);
-
-            onUpdateStatus(taskToMove, status).then(success => {
-                if (!success) {
-                    setAllTasks(originalTasks);
-                }
-            });
+            onUpdateStatus(taskToMove, status);
         }
         setDraggedTaskId(null);
         setDragOverStatus(null);
@@ -227,14 +175,6 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
         };
     }, [filteredTasksForBoard, sortConfigs]);
     
-    useEffect(() => {
-        setTaskCounts({
-            todo: todo.length,
-            inprogress: inprogress.length,
-            done: done.length,
-        });
-    }, [todo, inprogress, done, setTaskCounts]);
-
     const statusConfig = {
         todo: { icon: <ClipboardListIcon size={16} className="text-orange-500" />, borderColor: 'border-orange-500', title: t.todo },
         inprogress: { icon: <SpinnerIcon size={16} className="text-indigo-500 animate-spin" />, borderColor: 'border-indigo-500', title: t.inprogress },
@@ -273,7 +213,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                     </select>
                 </PerformanceSummary>
                 <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
-                {loading ? <TaskBoardSkeleton /> : (
+                {isLoading ? <TaskBoardSkeleton /> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                         {columns.map(({ tasks, status }) => (
                             <TaskColumn
