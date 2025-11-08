@@ -367,4 +367,7 @@ export type Translation = {
   sortStatus: string;
   sortPriority: string;
   sortCreationDate: string;
+
+  // General App
+  dataRefreshed: string;
 };

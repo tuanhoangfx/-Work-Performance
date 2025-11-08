@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy, useMemo } from 'react';
+
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { translations } from './translations';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -6,7 +7,7 @@ import type { Task } from './types';
 import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './components/Icons';
 import { SettingsContext, ColorScheme } from './context/SettingsContext';
 import { ToastProvider } from './context/ToastContext';
-import { TaskProvider, useTasks } from './context/TaskContext';
+import { useToasts } from './context/ToastContext';
 
 // Custom Hooks for logic separation
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
@@ -14,6 +15,7 @@ import { useModalManager } from './hooks/useModalManager';
 import { useProfileAndUsers } from './hooks/useProfileAndUsers';
 import { useNotifications } from './hooks/useNotifications';
 import { useAppActions } from './hooks/useAppActions';
+import useIdleTimer from './hooks/useIdleTimer';
 
 // Lazy load components
 const Header = lazy(() => import('./components/Header'));
@@ -67,19 +69,25 @@ const LoadingSpinner: React.FC = () => (
   </div>
 );
 
-const AppWithTasks: React.FC = () => {
-  const { session, loading: authLoading } = useSupabaseAuth();
+const AppContent: React.FC = () => {
+  const { session, loading: authLoading, handleSignOut } = useSupabaseAuth();
   const { modals } = useModalManager();
+  const { addToast } = useToasts();
   
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'dark');
   const [colorScheme, setColorScheme] = useLocalStorage<ColorScheme>('colorScheme', 'sky');
   const [language, setLanguage] = useLocalStorage<keyof typeof translations>('language', 'en');
   const [defaultDueDateOffset, setDefaultDueDateOffset] = useLocalStorage<number>('defaultDueDateOffset', 0);
   const [timezone, setTimezone] = useLocalStorage<string>('timezone', 'Asia/Ho_Chi_Minh');
-
-  const { allTasks, isLoading: isLoadingTasks } = useTasks();
+  
+  const [lastDataChange, setLastDataChange] = useState<DataChange | null>(null);
+  const notifyDataChange = useCallback((change: Omit<DataChange, 'timestamp'>) => {
+    setLastDataChange({ ...change, timestamp: Date.now() });
+  }, []);
 
   const t = translations[language];
+  const [taskCounts, setTaskCounts] = useState<TaskCounts>({ todo: 0, inprogress: 0, done: 0 });
+
 
   const {
       profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers
@@ -94,8 +102,23 @@ const AppWithTasks: React.FC = () => {
   } = useAppActions({
       session,
       setActionModal: modals.action.setState,
+      notifyDataChange: notifyDataChange,
       t
   });
+
+  // Background Sync Logic
+  const handleIdle = useCallback(() => {
+    // Only refresh if user is logged in and online
+    if (session && navigator.onLine) {
+        console.log('User is idle. Refreshing data in the background...');
+        // Use the existing 'batch_update' type to trigger a refetch in useCachedSupabaseQuery
+        notifyDataChange({ type: 'batch_update', payload: { reason: 'idle_refresh' } });
+        addToast(t.dataRefreshed, 'info');
+    }
+  }, [session, notifyDataChange, addToast, t.dataRefreshed]);
+
+  // Call the idle timer hook. Timeout is 5 minutes.
+  useIdleTimer(handleIdle, 5 * 60 * 1000);
 
   const canAddTask = session && profile && !(profile.role === 'admin' && adminView !== 'myTasks');
 
@@ -105,18 +128,22 @@ const AppWithTasks: React.FC = () => {
         const target = event.target as HTMLElement;
         const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
+        // Don't trigger shortcuts if a modifier key is pressed (e.g., for Ctrl+F)
         if (event.ctrlKey || event.metaKey || event.altKey) {
             return;
         }
 
+        // 'N' for new task
         if (event.key.toLowerCase() === 'n' && !isTyping && canAddTask) {
             event.preventDefault();
+            // Check if any modal is open before opening a new one
             const anyModalOpen = modals.auth.isOpen || modals.account.isOpen || modals.userGuide.isOpen || modals.task.isOpen || modals.activityLog.isOpen || modals.notifications.isOpen || modals.action.isOpen;
             if (!anyModalOpen) {
                 modals.task.open(null);
             }
         }
 
+        // 'F' to focus search
         if (event.key.toLowerCase() === 'f' && !isTyping) {
             event.preventDefault();
             const searchInput = document.querySelector<HTMLInputElement>('input[name="searchTerm"]');
@@ -134,6 +161,52 @@ const AppWithTasks: React.FC = () => {
   }, [canAddTask, modals]);
 
   useEffect(() => {
+    if (!session || !isSupabaseConfigured) {
+        return;
+    }
+
+    const tasksChannel = supabase.channel('public:tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+        async (payload) => {
+          console.log('Realtime task change received!', payload);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const { data: task, error } = await supabase
+              .from('tasks')
+              .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (error) {
+              console.error('Error fetching task from realtime update:', error);
+              return;
+            }
+            if (task) {
+              notifyDataChange({ type: payload.eventType === 'INSERT' ? 'add' : 'update', payload: task });
+            }
+          } else if (payload.eventType === 'DELETE') {
+            notifyDataChange({ type: 'delete', payload: { id: (payload.old as any).id } });
+          }
+        }
+      )
+      .subscribe();
+      
+    const attachmentsChannel = supabase.channel('public:task_attachments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_attachments' },
+      (payload) => {
+          console.log('Realtime attachment change received!', payload);
+          notifyDataChange({ type: 'batch_update', payload: null });
+      }
+    ).subscribe();
+
+
+    return () => {
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(attachmentsChannel);
+    }
+  }, [session, notifyDataChange]);
+
+  useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('dark', 'light');
     root.classList.add(theme);
@@ -145,6 +218,12 @@ const AppWithTasks: React.FC = () => {
     root.classList.add(`theme-${colorScheme}`);
   }, [colorScheme]);
   
+  useEffect(() => {
+    if (!session) {
+        setTaskCounts({ todo: 0, inprogress: 0, done: 0 });
+    }
+  }, [session]);
+
   const handleViewTaskFromNotification = useCallback(async (taskId: number) => {
     try {
         const { data, error } = await supabase
@@ -177,22 +256,6 @@ const AppWithTasks: React.FC = () => {
     }
   }, [modals.action, modals.notifications, modals.task, t]);
 
-  const taskCounts = useMemo<TaskCounts>(() => {
-    if (!session || !profile) {
-      return { todo: 0, inprogress: 0, done: 0 };
-    }
-    const relevantTasks = profile.role === 'admin' && adminView !== 'myTasks' 
-        ? allTasks 
-        : allTasks.filter(task => task.user_id === session.user.id || task.created_by === session.user.id);
-    
-    return relevantTasks.reduce((acc, task) => {
-        if (task.status === 'todo') acc.todo++;
-        else if (task.status === 'inprogress') acc.inprogress++;
-        else if (task.status === 'done') acc.done++;
-        return acc;
-    }, { todo: 0, inprogress: 0, done: 0 });
-  }, [allTasks, session, profile, adminView]);
-
   const renderDashboard = () => {
       if (!session) {
         return (
@@ -221,45 +284,59 @@ const AppWithTasks: React.FC = () => {
           </div>
         )
       }
-      if (loadingProfile || authLoading || isLoadingTasks) {
+      if (loadingProfile || authLoading) {
           return <div className="text-center p-8">Loading user data...</div>;
       }
       if (!profile) {
           return <div className="text-center p-8 text-xl text-red-500">Could not load user profile. Please try refreshing.</div>
       }
       
-      if (profile?.role === 'admin') {
-          if (adminView === 'taskDashboard') {
-              return <AdminTaskDashboard
-                  allUsers={allUsers}
-                  onEditTask={modals.task.open}
-                  onDeleteTask={taskActions.handleDeleteTask}
-                  onClearCancelledTasks={taskActions.handleClearCancelledTasks}
-                  onUpdateStatus={taskActions.handleUpdateStatus}
-                  onStartTimer={timerActions.handleStartTimer}
-                  onStopTimer={timerActions.handleStopTimer}
-                  activeTimer={activeTimer}
-              />;
-          }
-          if (adminView === 'userManagement') {
-              return <UserManagementDashboard
-                  allUsers={allUsers}
-                  onUsersChange={getAllUsers}
-              />;
-          }
-      }
+      const isMyTasksVisible = (profile.role !== 'admin') || (profile.role === 'admin' && adminView === 'myTasks');
       
-      return <EmployeeDashboard 
-        session={session} 
-        onEditTask={modals.task.open}
-        onDeleteTask={taskActions.handleDeleteTask}
-        onClearCancelledTasks={taskActions.handleClearCancelledTasks}
-        onUpdateStatus={taskActions.handleUpdateStatus}
-        onStartTimer={timerActions.handleStartTimer}
-        onStopTimer={timerActions.handleStopTimer}
-        activeTimer={activeTimer}
-        allUsers={allUsers}
-      />;
+      return (
+        <>
+            <div className={isMyTasksVisible ? 'block' : 'hidden'}>
+                <EmployeeDashboard 
+                    session={session} 
+                    lastDataChange={lastDataChange}
+                    onEditTask={modals.task.open}
+                    onDeleteTask={taskActions.handleDeleteTask}
+                    onClearCancelledTasks={taskActions.handleClearCancelledTasks}
+                    onUpdateStatus={taskActions.handleUpdateStatus}
+                    onStartTimer={timerActions.handleStartTimer}
+                    onStopTimer={timerActions.handleStopTimer}
+                    activeTimer={activeTimer}
+                    allUsers={allUsers}
+                    setTaskCounts={setTaskCounts}
+                />
+            </div>
+
+            {profile.role === 'admin' && (
+                <>
+                    <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
+                        <AdminTaskDashboard
+                            lastDataChange={lastDataChange}
+                            allUsers={allUsers}
+                            onEditTask={modals.task.open}
+                            onDeleteTask={taskActions.handleDeleteTask}
+                            onClearCancelledTasks={taskActions.handleClearCancelledTasks}
+                            onUpdateStatus={taskActions.handleUpdateStatus}
+                            onStartTimer={timerActions.handleStartTimer}
+                            onStopTimer={timerActions.handleStopTimer}
+                            activeTimer={activeTimer}
+                            setTaskCounts={setTaskCounts}
+                        />
+                    </div>
+                    <div className={adminView === 'userManagement' ? 'block' : 'hidden'}>
+                         <UserManagementDashboard
+                            allUsers={allUsers}
+                            onUsersChange={getAllUsers} 
+                        />
+                    </div>
+                </>
+            )}
+        </>
+      );
   }
 
   return (
@@ -269,7 +346,7 @@ const AppWithTasks: React.FC = () => {
         <Header 
           session={session}
           profile={profile}
-          handleSignOut={taskActions.handleSignOut}
+          handleSignOut={handleSignOut}
           onSignInClick={modals.auth.open}
           onAccountClick={modals.account.open}
           adminView={adminView}
@@ -334,12 +411,6 @@ const AppWithTasks: React.FC = () => {
     </SettingsContext.Provider>
   );
 }
-
-const AppContent: React.FC = () => (
-  <TaskProvider>
-    <AppWithTasks />
-  </TaskProvider>
-);
 
 export default function App() {
   return (

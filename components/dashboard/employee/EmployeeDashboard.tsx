@@ -1,13 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
+import { supabase } from '../../../lib/supabase';
 import type { Task, TimeLog, Profile } from '../../../types';
 import type { Session } from '@supabase/supabase-js';
 import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import CalendarView from '../../CalendarView';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
-import { useTasks } from '../../../context/TaskContext';
+import type { DataChange, TaskCounts } from '../../../App';
 import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
+import { useCachedSupabaseQuery } from '../../../hooks/useCachedSupabaseQuery';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
 import DashboardViewToggle from '../DashboardViewToggle';
@@ -16,6 +18,7 @@ import { CalendarSortState } from '../../CalendarView';
 
 interface TaskDashboardProps {
     session: Session;
+    lastDataChange: DataChange | null;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onClearCancelledTasks: (tasks: Task[]) => void;
@@ -24,12 +27,11 @@ interface TaskDashboardProps {
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
     allUsers: Profile[];
+    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
     const { t, timezone } = useSettings();
-    const { allTasks, isLoading } = useTasks();
-    
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
@@ -46,15 +48,29 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
         config: { field: 'priority', direction: 'desc' }
     });
     
+    // State for time range filtering
     const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
     const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const tasks = useMemo(() => {
-        if (!session?.user) return [];
-        return allTasks.filter(task => task.user_id === session.user.id || task.created_by === session.user.id);
-    }, [allTasks, session]);
+    const taskQuery = useCallback(() => {
+        return supabase
+            .from('tasks')
+            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+            .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`)
+            .order('priority', { ascending: false })
+            .order('created_at', { ascending: true });
+    }, [session.user.id]);
+
+    const { data: tasks, loading } = useCachedSupabaseQuery<Task[]>({
+        cacheKey: `user_tasks_${session.user.id}`,
+        query: taskQuery,
+        dependencies: [session.user.id],
+        lastDataChange,
+    });
+    
+    const tasks_safe = tasks || [];
 
     const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
@@ -95,14 +111,14 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
                 endDate = todayEnd;
                 break;
             case 'customMonth':
-                if (!customMonth) return { tasksForSummaryAndChart: tasks };
+                if (!customMonth) return { tasksForSummaryAndChart: tasks_safe };
                 const [year, month] = customMonth.split('-').map(Number);
                 startDate = new Date(year, month - 1, 1);
                 endDate = new Date(year, month, 0);
                 endDate.setHours(23, 59, 59, 999);
                 break;
             case 'customRange':
-                if (!customStartDate) return { tasksForSummaryAndChart: tasks };
+                if (!customStartDate) return { tasksForSummaryAndChart: tasks_safe };
                 startDate = new Date(customStartDate);
                 startDate.setHours(0, 0, 0, 0);
                 endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
@@ -113,19 +129,19 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
                 endDate = todayEnd;
         }
 
-        const filtered = tasks.filter(task => {
+        const filtered = tasks_safe.filter(task => {
             const taskDate = new Date(task.created_at);
             return taskDate >= startDate && taskDate <= endDate;
         });
         return { tasksForSummaryAndChart: filtered };
-    }, [tasks, timeRange, customMonth, customStartDate, customEndDate]);
+    }, [tasks_safe, timeRange, customMonth, customStartDate, customEndDate]);
 
 
     const filteredTasksForBoard = useMemo(() => {
         const today = getTodayDateString(timezone);
         const endOfWeek = getEndOfWeekDateString(timezone);
 
-        return tasks.filter(task => {
+        return tasks_safe.filter(task => {
             const trimmedSearch = filters.searchTerm.trim();
             const isNumericSearch = /^\d+$/.test(trimmedSearch);
 
@@ -165,13 +181,13 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
 
             return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch;
         });
-    }, [tasks, filters, timezone]);
+    }, [tasks_safe, filters, timezone]);
     
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
-        const taskToMove = tasks.find(t => t.id === draggedTaskId);
+        const taskToMove = tasks_safe.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-            // Optimistic update handled by real-time subscription in TaskProvider
+            // Optimistic update handled by `useCachedSupabaseQuery` via `lastDataChange`
             onUpdateStatus(taskToMove, status);
         }
         setDraggedTaskId(null);
@@ -192,6 +208,14 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
             cancelled: sortTasks(grouped.cancelled, sortConfigs.cancelled),
         };
     }, [filteredTasksForBoard, sortConfigs]);
+    
+    useEffect(() => {
+        setTaskCounts({
+            todo: todo.length,
+            inprogress: inprogress.length,
+            done: done.length,
+        });
+    }, [todo, inprogress, done, setTaskCounts]);
     
     const renderBoardColumns = () => {
         const statusConfig = {
@@ -256,7 +280,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, onEditTask, 
             
             <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
 
-            {isLoading ? (
+            {loading && tasks_safe.length === 0 ? (
                 <TaskBoardSkeleton />
             ) : view === 'board' ? (
                 renderBoardColumns()

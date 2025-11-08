@@ -1,16 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
 import type { Profile, Task, TimeLog } from '../../../types';
 import { EditIcon, UsersIcon } from '../../Icons';
 import EditEmployeeModal from '../../EditEmployeeModal';
-import { useTasks } from '../../../context/TaskContext';
+import type { DataChange, TaskCounts } from '../../../App';
 import { EmployeeListSkeleton } from '../../Skeleton';
 import AllTasksView from './AllTasksView';
 import EmployeeTaskView from './EmployeeTaskView';
 import Avatar from '../../common/Avatar';
 
 interface AdminTaskDashboardProps {
+    lastDataChange: DataChange | null;
     allUsers: Profile[];
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
@@ -19,16 +21,19 @@ interface AdminTaskDashboardProps {
     onStartTimer: (task: Task) => void;
     onStopTimer: (timeLog: TimeLog) => void;
     activeTimer: TimeLog | null;
+    setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const AdminTaskDashboard: React.FC<AdminTaskDashboardProps> = ({ allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks }) => {
+const AdminTaskDashboard: React.FC<AdminTaskDashboardProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
     const { t } = useSettings();
-    const { isLoading } = useTasks();
     const [view, setView] = useState<'all' | 'employee'>('all');
     const [selectedEmployee, setSelectedEmployee] = useState<Profile | null>(null);
+    const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [employeeToEdit, setEmployeeToEdit] = useState<Profile | null>(null);
 
+    useEffect(() => { setLoading(allUsers.length === 0); }, [allUsers]);
+    
     const openEditModal = (employee: Profile) => {
         setEmployeeToEdit(employee);
         setIsEditModalOpen(true);
@@ -41,6 +46,7 @@ const AdminTaskDashboard: React.FC<AdminTaskDashboardProps> = ({ allUsers, onEdi
         } else {
             setIsEditModalOpen(false);
             setEmployeeToEdit(null);
+            // This is a profile change, a full refresh is acceptable here.
             window.location.reload();
         }
     };
@@ -50,37 +56,12 @@ const AdminTaskDashboard: React.FC<AdminTaskDashboardProps> = ({ allUsers, onEdi
         setSelectedEmployee(employee);
     }
 
-    const renderContent = () => {
-        switch (view) {
-            case 'all':
-                return <AllTasksView 
-                            allUsers={allUsers}
-                            onEditTask={onEditTask}
-                            onDeleteTask={onDeleteTask}
-                            onUpdateStatus={onUpdateStatus}
-                            onClearCancelledTasks={onClearCancelledTasks}
-                        />;
-            case 'employee':
-                return selectedEmployee ? <EmployeeTaskView 
-                                                employee={selectedEmployee} 
-                                                key={selectedEmployee.id} 
-                                                onEditTask={onEditTask}
-                                                onDeleteTask={onDeleteTask}
-                                                onUpdateStatus={onUpdateStatus}
-                                                onClearCancelledTasks={onClearCancelledTasks}
-                                                allUsers={allUsers}
-                                            /> : null;
-            default:
-                return null;
-        }
-    }
-
     return (
         <div className="w-full animate-fadeInUp">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1 bg-white dark:bg-gray-800/50 rounded-lg shadow-md p-4">
                     <h2 className="font-bold text-lg mb-4">{t.allEmployees}</h2>
-                     {isLoading ? <EmployeeListSkeleton /> : (
+                     {loading ? <EmployeeListSkeleton /> : (
                         <ul className="space-y-1 max-h-96 lg:max-h-[calc(100vh-280px)] overflow-y-auto">
                             <li><button onClick={() => { setView('all'); setSelectedEmployee(null); }} className={`w-full text-left p-2 rounded-md transition-colors text-sm font-semibold flex items-center gap-3 ${view === 'all' ? 'bg-[var(--accent-color)] text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}><UsersIcon size={20} /><span>{t.allTasksBoard}</span></button></li>
                             <div className="my-2 border-t border-gray-200 dark:border-gray-700"></div>
@@ -101,7 +82,31 @@ const AdminTaskDashboard: React.FC<AdminTaskDashboardProps> = ({ allUsers, onEdi
                     )}
                 </div>
                 <div className="lg:col-span-3">
-                    {renderContent()}
+                    <div className={view === 'all' ? 'block' : 'hidden'}>
+                         <AllTasksView 
+                            lastDataChange={lastDataChange}
+                            allUsers={allUsers}
+                            onEditTask={onEditTask}
+                            onDeleteTask={onDeleteTask}
+                            onUpdateStatus={onUpdateStatus}
+                            onClearCancelledTasks={onClearCancelledTasks}
+                            setTaskCounts={setTaskCounts}
+                        />
+                    </div>
+                    <div className={view === 'employee' ? 'block' : 'hidden'}>
+                        {selectedEmployee && <EmployeeTaskView 
+                                                employee={selectedEmployee} 
+                                                key={selectedEmployee.id} 
+                                                lastDataChange={lastDataChange}
+                                                onEditTask={onEditTask}
+                                                onDeleteTask={onDeleteTask}
+                                                onUpdateStatus={onUpdateStatus}
+                                                onClearCancelledTasks={onClearCancelledTasks}
+                                                allUsers={allUsers}
+                                                setTaskCounts={setTaskCounts}
+                                            />
+                        }
+                    </div>
                 </div>
             </div>
              {isEditModalOpen && employeeToEdit && <EditEmployeeModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveEmployeeProfile} employee={employeeToEdit} />}

@@ -3,22 +3,27 @@ import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types';
 import { AdminView } from '../App';
+import { useLocalStorage } from './useLocalStorage';
 
 export const useProfileAndUsers = (session: Session | null) => {
     const [profile, setProfile] = useState<Profile | null>(null);
-    const [allUsers, setAllUsers] = useState<Profile[]>([]);
+    const [allUsers, setAllUsers] = useLocalStorage<Profile[]>('all_users', []);
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [adminView, setAdminView] = useState<AdminView>('myTasks');
 
     const getAllUsers = useCallback(async () => {
         try {
+            // Fetch fresh data in the background
             const { data, error } = await supabase.from('profiles').select('*').order('full_name');
             if (error) throw error;
-            setAllUsers(data || []);
+            // Update state and localStorage with fresh data
+            if (data) {
+                setAllUsers(data);
+            }
         } catch (error: any) {
             console.error('Error fetching users:', error.message);
         }
-    }, []);
+    }, [setAllUsers]);
 
     const getProfile = useCallback(async (user: Session['user']) => {
         if (!user) return;
@@ -52,14 +57,15 @@ export const useProfileAndUsers = (session: Session | null) => {
     useEffect(() => {
         if (session?.user) {
             getProfile(session.user);
+            // Initially, the hook uses cached users. This call fetches the latest in the background.
             getAllUsers();
         } else {
             setProfile(null);
-            setAllUsers([]);
+            setAllUsers([]); // Clear users on sign out
             setLoadingProfile(false);
             setAdminView('myTasks');
         }
-    }, [session, getProfile, getAllUsers]);
+    }, [session, getProfile, getAllUsers, setAllUsers]);
 
     return { profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers };
 };

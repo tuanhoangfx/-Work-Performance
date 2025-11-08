@@ -24,5 +24,10 @@ export const useSupabaseAuth = () => {
         return () => subscription.unsubscribe();
     }, []);
 
-    return { session, loading };
+    const handleSignOut = async () => {
+        if (!isSupabaseConfigured) return;
+        await supabase.auth.signOut();
+    };
+
+    return { session, loading, handleSignOut };
 };

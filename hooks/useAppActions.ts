@@ -2,8 +2,8 @@ import { useState, useCallback, Dispatch, SetStateAction } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Task, TimeLog } from '../types';
+import type { DataChange } from '../App';
 import { useToasts } from '../context/ToastContext';
-import { useTasks } from '../context/TaskContext';
 
 interface ActionModalState {
   isOpen: boolean;
@@ -19,17 +19,13 @@ type SetActionModal = Dispatch<SetStateAction<ActionModalState>>;
 interface UseAppActionsProps {
     session: Session | null;
     setActionModal: SetActionModal;
+    notifyDataChange: (change: Omit<DataChange, 'timestamp'>) => void;
     t: any; // Translation object
 }
 
-export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps) => {
+export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: UseAppActionsProps) => {
     const [activeTimer, setActiveTimer] = useState<TimeLog | null>(null);
     const { addToast } = useToasts();
-    const { fetchTasks } = useTasks();
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-    };
 
     const logActivity = useCallback(async (action: string, details: Record<string, any>) => {
         if (!session?.user?.id) return;
@@ -67,8 +63,8 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
 
         try {
             const { data: savedTask, error: saveError } = isNewTask
-                ? await supabase.from('tasks').insert(dataToSave).select('id, title').single()
-                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select('id, title').single();
+                ? await supabase.from('tasks').insert(dataToSave).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single()
+                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
 
             if (saveError) throw saveError;
             if (!savedTask) throw new Error("Task could not be saved.");
@@ -131,7 +127,10 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
                 }
             }
             
-            // No longer need to notifyDataChange, the realtime subscription will handle it.
+            const { data: finalTask, error: finalError } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('id', taskId).single();
+            if (finalError) throw finalError;
+            
+            notifyDataChange({ type: isNewTask ? 'add' : 'update', payload: finalTask });
             addToast(isNewTask ? "Task created successfully." : "Task updated successfully.", 'success');
             return true;
         } catch (error: any) {
@@ -160,13 +159,13 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
             }
 
             if (activeTimer?.task_id === task.id) setActiveTimer(null);
-            // No longer need to notifyDataChange
+            notifyDataChange({ type: 'delete', payload: { id: task.id } });
             addToast('Task deleted successfully.', 'success');
         } catch (error: any) {
             console.error("Error deleting task:", error.message);
             addToast(`Error: ${error.message}`, 'error');
         }
-    }, [logActivity, activeTimer, addToast]);
+    }, [logActivity, activeTimer, notifyDataChange, addToast]);
 
     const handleDeleteTask = useCallback((task: Task) => {
         setActionModal({
@@ -194,13 +193,13 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
             if (error) throw error;
 
             if (activeTimer && taskIds.includes(activeTimer.task_id)) setActiveTimer(null);
-            // No longer need to notifyDataChange
+            notifyDataChange({ type: 'delete_many', payload: { ids: taskIds } });
             addToast("Cancelled tasks cleared.", 'success');
         } catch (error: any) {
             console.error("Error clearing cancelled tasks:", error.message);
             addToast(`Error: ${error.message}`, 'error');
         }
-    }, [logActivity, activeTimer, addToast]);
+    }, [logActivity, activeTimer, notifyDataChange, addToast]);
 
     const handleClearCancelledTasks = useCallback((tasksToClear: Task[]) => {
         if (tasksToClear.length === 0) return;
@@ -215,17 +214,17 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
     }, [setActionModal, executeClearCancelledTasks, t]);
     
     const handleUpdateStatus = useCallback(async (task: Task, status: Task['status']): Promise<boolean> => {
-        const { error } = await supabase.from('tasks').update({ status }).eq('id', task.id);
+        const { data, error } = await supabase.from('tasks').update({ status }).eq('id', task.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
         if (error) {
             console.error("Error updating task status:", error.message);
             addToast('Failed to update task status.', 'error');
             return false;
         } else {
             await logActivity('status_changed', { task_id: task.id, task_title: task.title, from: task.status, to: status });
-            // No longer need to notifyDataChange
+            notifyDataChange({ type: 'update', payload: data });
             return true;
         }
-    }, [logActivity, addToast]);
+    }, [logActivity, notifyDataChange, addToast]);
 
     const handleStartTimer = useCallback(async (task: Task) => {
         if (!session || activeTimer) return;
@@ -237,12 +236,12 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
                 }).select().single();
             if (error) throw error;
             setActiveTimer(data);
-            fetchTasks(); // generic update
+            notifyDataChange({ type: 'batch_update', payload: null }); // generic update
         } catch (error: any) {
             console.error(error.message);
             addToast(`Error starting timer: ${error.message}`, 'error');
         }
-    }, [session, activeTimer, addToast, fetchTasks]);
+    }, [session, activeTimer, notifyDataChange, addToast]);
 
     const handleStopTimer = useCallback(async (timeLog: TimeLog) => {
         if (!activeTimer || activeTimer.id !== timeLog.id) return;
@@ -251,13 +250,13 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
                 .from('task_time_logs').update({ end_time: new Date().toISOString() }).eq('id', timeLog.id);
             if (error) throw error;
             setActiveTimer(null);
-            fetchTasks(); // generic update
+            notifyDataChange({ type: 'batch_update', payload: null }); // generic update
         } catch (error: any)
  {
             console.error(error.message);
             addToast(`Error stopping timer: ${error.message}`, 'error');
         }
-    }, [activeTimer, addToast, fetchTasks]);
+    }, [activeTimer, notifyDataChange, addToast]);
     
     return {
         activeTimer,
@@ -267,7 +266,6 @@ export const useAppActions = ({ session, setActionModal, t }: UseAppActionsProps
             handleDeleteTask,
             handleClearCancelledTasks,
             handleUpdateStatus,
-            handleSignOut
         },
         timerActions: {
             handleStartTimer,

@@ -264,6 +264,9 @@ const en: Translation = {
   sortStatus: "Status",
   sortPriority: "Priority",
   sortCreationDate: "Creation Date",
+
+  // General App
+  dataRefreshed: "Data refreshed automatically.",
 };
 
 const vi: Translation = {
@@ -531,6 +534,9 @@ const vi: Translation = {
   sortStatus: "Trạng thái",
   sortPriority: "Ưu tiên",
   sortCreationDate: "Ngày tạo",
+  
+  // General App
+  dataRefreshed: "Dữ liệu đã được làm mới tự động.",
 };
 
 const th: Translation = {
@@ -555,6 +561,7 @@ const th: Translation = {
   taskDeleted: "งานนี้ถูกลบแล้ว",
   taskNotFound: "ไม่พบงาน",
   saveTaskToComment: "บันทึกงานเพื่อเพิ่มความคิดเห็น",
+  dataRefreshed: "ข้อมูลถูกรีเฟรชโดยอัตโนมัติ",
 };
 
 
