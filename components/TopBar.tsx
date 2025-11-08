@@ -5,13 +5,13 @@ import type { Session } from '@supabase/supabase-js';
 import { PlusIcon, HistoryIcon, BellIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import { Profile, Task } from '../types';
-import { TaskCounts } from '../App';
+import { TaskCounts, AdminView } from '../App';
 
 interface TopBarProps {
     session: Session | null;
     onAddNewTask: () => void;
     profile: Profile | null;
-    isAdminView: boolean;
+    adminView: AdminView;
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => void;
@@ -21,9 +21,9 @@ interface TopBarProps {
     taskCounts: TaskCounts;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, isAdminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
+const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, adminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
     const { t } = useSettings();
-    const canAddTask = session && !(profile?.role === 'admin' && isAdminView);
+    const canAddTask = session && !(profile?.role === 'admin' && adminView !== 'myTasks');
 
     return (
         <div className="relative z-10 bg-slate-100 dark:bg-black/20 text-gray-600 dark:text-gray-400 animate-fadeInDown border-b border-black/5 dark:border-white/5">

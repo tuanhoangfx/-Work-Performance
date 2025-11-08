@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types';
+import { AdminView } from '../App';
 
 export const useProfileAndUsers = (session: Session | null) => {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [allUsers, setAllUsers] = useState<Profile[]>([]);
     const [loadingProfile, setLoadingProfile] = useState(true);
-    const [isAdminView, setIsAdminView] = useState(false);
+    const [adminView, setAdminView] = useState<AdminView>('myTasks');
 
     const getAllUsers = useCallback(async () => {
         try {
@@ -56,9 +57,9 @@ export const useProfileAndUsers = (session: Session | null) => {
             setProfile(null);
             setAllUsers([]);
             setLoadingProfile(false);
-            setIsAdminView(false);
+            setAdminView('myTasks');
         }
     }, [session, getProfile, getAllUsers]);
 
-    return { profile, allUsers, loadingProfile, isAdminView, setIsAdminView, getProfile };
+    return { profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers };
 };

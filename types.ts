@@ -256,6 +256,13 @@ export type Translation = {
   allTasksBoard: string;
   customMonth: string;
   customRange: string;
+  userManagement: string;
+  searchUsers: string;
+  lastUpdated: string;
+  actions: string;
+  editUser: string;
+  deleteUser: string;
+  confirmDeleteUser: (name: string) => string;
   
   // Generic Actions
   close: string;

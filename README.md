@@ -191,6 +191,41 @@ AS $$
   );
 $$;
 
+-- Helper function for storage policies to check if a user can access a task via an attachment path.
+CREATE OR REPLACE FUNCTION public.can_access_task_from_attachment_path(p_file_path text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_task_id bigint;
+  v_has_access boolean;
+BEGIN
+  -- Path format is 'uploader_user_id/task_id/file_uuid-filename.ext'
+  -- We extract the second part as the task_id.
+  BEGIN
+    v_task_id := (string_to_array(p_file_path, '/'))[2]::bigint;
+  EXCEPTION WHEN others THEN
+    -- Invalid path format, deny access.
+    RETURN FALSE;
+  END;
+
+  IF v_task_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Check if the current user is either the assignee or creator of the task.
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.tasks
+    WHERE id = v_task_id AND (user_id = auth.uid() OR created_by = auth.uid())
+  )
+  INTO v_has_access;
+
+  RETURN v_has_access;
+END;
+$$;
+
 -- Notification function for new task assignments.
 CREATE OR REPLACE FUNCTION public.create_new_task_assignment_notification()
 RETURNS TRIGGER
@@ -293,7 +328,7 @@ CREATE POLICY "Users can view, update, delete tasks they are assigned to or crea
 CREATE POLICY "Admins can manage all tasks." ON public.tasks FOR ALL USING (public.is_admin());
 
 -- Policies for `task_attachments` table
-CREATE POLICY "Users can manage attachments for their tasks." ON public.task_attachments FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage attachments for tasks they can access." ON public.task_attachments FOR ALL USING (EXISTS (SELECT 1 FROM public.tasks WHERE tasks.id = task_attachments.task_id AND (tasks.user_id = auth.uid() OR tasks.created_by = auth.uid())));
 CREATE POLICY "Admins can manage all attachments." ON public.task_attachments FOR ALL USING (public.is_admin());
 
 -- Policies for `task_time_logs` table
@@ -329,7 +364,9 @@ CREATE POLICY "Users can manage their own avatar." ON storage.objects FOR ALL US
 CREATE POLICY "Admins can manage all avatars." ON storage.objects FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- Policies for 'task-attachments' bucket
-CREATE POLICY "Users can manage their own attachments." ON storage.objects FOR ALL USING (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1]) WITH CHECK (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
+CREATE POLICY "Users can view task attachments." ON storage.objects FOR SELECT USING (bucket_id = 'task-attachments' AND public.can_access_task_from_attachment_path(name));
+CREATE POLICY "Users can upload task attachments." ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1] AND public.can_access_task_from_attachment_path(name));
+CREATE POLICY "Users can delete their own task attachments." ON storage.objects FOR DELETE USING (bucket_id = 'task-attachments' AND auth.uid()::text = (storage.foldername(name))[1] AND public.can_access_task_from_attachment_path(name));
 CREATE POLICY "Admins can manage all attachments." ON storage.objects FOR ALL USING (bucket_id = 'task-attachments' AND public.is_admin()) WITH CHECK (bucket_id = 'task-attachments' AND public.is_admin());
 
 ```

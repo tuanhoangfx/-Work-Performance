@@ -102,7 +102,7 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
 
             if (newFiles.length > 0) {
                 const uploadPromises = newFiles.map(file => {
-                    const filePath = `${userId}/${taskId}/${crypto.randomUUID()}-${file.name}`;
+                    const filePath = `${session.user.id}/${taskId}/${crypto.randomUUID()}-${file.name}`;
                     return supabase.storage.from('task-attachments').upload(filePath, file);
                 });
                 const uploadResults = await Promise.all(uploadPromises);
@@ -114,7 +114,7 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
                             return null;
                         }
                         return {
-                            task_id: taskId, user_id: userId, file_name: newFiles[i].name,
+                            task_id: taskId, user_id: session.user.id, file_name: newFiles[i].name,
                             file_path: result.data.path, file_type: newFiles[i].type, file_size: newFiles[i].size,
                         };
                     })

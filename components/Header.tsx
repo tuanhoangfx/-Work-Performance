@@ -5,9 +5,9 @@ import { LogoIcon } from './Icons';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '../context/SettingsContext';
 import type { Profile, Task } from '../types';
-import { TaskCounts } from '../App';
+import { TaskCounts, AdminView } from '../App';
 import UserMenu from './header/UserMenu';
-import AdminViewToggle from './header/AdminViewToggle';
+import AdminNav from './header/AdminNav';
 
 interface HeaderProps {
   session: Session | null;
@@ -15,8 +15,8 @@ interface HeaderProps {
   handleSignOut: () => void;
   onSignInClick: () => void;
   onAccountClick: () => void;
-  isAdminView: boolean;
-  setIsAdminView: (isAdminView: boolean) => void;
+  adminView: AdminView;
+  setAdminView: (view: AdminView) => void;
   onAddNewTask: () => void;
   onEditTask: (task: Task | Partial<Task> | null) => void;
   onDeleteTask: (task: Task) => void;
@@ -27,7 +27,7 @@ interface HeaderProps {
   taskCounts: TaskCounts;
 }
 
-const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, isAdminView, setIsAdminView, onAddNewTask, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
+const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSignInClick, onAccountClick, adminView, setAdminView, onAddNewTask, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
   const { t } = useSettings();
 
   return (
@@ -36,7 +36,7 @@ const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSign
         session={session}
         onAddNewTask={onAddNewTask}
         profile={profile}
-        isAdminView={isAdminView}
+        adminView={adminView}
         onEditTask={onEditTask}
         onDeleteTask={onDeleteTask}
         onUpdateStatus={onUpdateStatus}
@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSign
 
         {/* Left Side (half width on mobile, auto on desktop) */}
         <div className="w-1/2 md:flex-1 flex justify-start order-2 md:order-1">
-            {session && profile?.role === 'admin' && <AdminViewToggle isAdminView={isAdminView} setIsAdminView={setIsAdminView} />}
+            {session && profile?.role === 'admin' && <AdminNav activeView={adminView} setView={setAdminView} />}
         </div>
         
         {/* Right Side (half width on mobile, auto on desktop) */}

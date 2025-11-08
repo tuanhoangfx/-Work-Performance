@@ -21,8 +21,9 @@ const ScrollToTopButton = lazy(() => import('./components/ScrollToTopButton'));
 const AuthModal = lazy(() => import('./components/Auth'));
 const AccountModal = lazy(() => import('./components/AccountModal'));
 const UserGuideModal = lazy(() => import('./components/UserGuide'));
-const EmployeeDashboard = lazy(() => import('./components/EmployeeDashboard'));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const EmployeeDashboard = lazy(() => import('./components/dashboard/employee/EmployeeDashboard'));
+const AdminTaskDashboard = lazy(() => import('./components/dashboard/admin/AdminTaskDashboard'));
+const UserManagementDashboard = lazy(() => import('./components/dashboard/admin/UserManagementDashboard'));
 const TaskModal = lazy(() => import('./components/TaskModal'));
 const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
 const NotificationsModal = lazy(() => import('./components/NotificationsModal'));
@@ -30,7 +31,7 @@ const ActionModal = lazy(() => import('./components/ActionModal'));
 const ToastContainer = lazy(() => import('./components/ToastContainer'));
 
 export type DataChange = {
-  type: 'add' | 'update' | 'delete' | 'delete_many' | 'batch_update';
+  type: 'add' | 'update' | 'delete' | 'delete_many' | 'batch_update' | 'profile_change';
   payload: any;
   timestamp: number;
 };
@@ -41,6 +42,7 @@ export interface TaskCounts {
   done: number;
 }
 
+export type AdminView = 'myTasks' | 'taskDashboard' | 'userManagement';
 
 const SupabaseNotConfigured: React.FC = () => (
   <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn bg-amber-100 dark:bg-amber-900/30 p-8 rounded-lg border border-amber-300 dark:border-amber-700">
@@ -84,7 +86,7 @@ const AppContent: React.FC = () => {
 
 
   const {
-      profile, allUsers, loadingProfile, isAdminView, setIsAdminView, getProfile
+      profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers
   } = useProfileAndUsers(session);
   
   const { unreadCount, setUnreadCount } = useNotifications(session);
@@ -100,7 +102,7 @@ const AppContent: React.FC = () => {
       t
   });
 
-  const canAddTask = session && profile && !(profile.role === 'admin' && isAdminView);
+  const canAddTask = session && profile && !(profile.role === 'admin' && adminView !== 'myTasks');
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -261,19 +263,27 @@ const AppContent: React.FC = () => {
           return <div className="text-center p-8 text-xl text-red-500">Could not load user profile. Please try refreshing.</div>
       }
       
-      if (profile?.role === 'admin' && isAdminView) {
-          return <AdminDashboard 
-            lastDataChange={lastDataChange}
-            allUsers={allUsers}
-            onEditTask={modals.task.open}
-            onDeleteTask={taskActions.handleDeleteTask}
-            onClearCancelledTasks={taskActions.handleClearCancelledTasks}
-            onUpdateStatus={taskActions.handleUpdateStatus}
-            onStartTimer={timerActions.handleStartTimer}
-            onStopTimer={timerActions.handleStopTimer}
-            activeTimer={activeTimer}
-            setTaskCounts={setTaskCounts}
-          />;
+      if (profile?.role === 'admin') {
+          if (adminView === 'taskDashboard') {
+              return <AdminTaskDashboard
+                  lastDataChange={lastDataChange}
+                  allUsers={allUsers}
+                  onEditTask={modals.task.open}
+                  onDeleteTask={taskActions.handleDeleteTask}
+                  onClearCancelledTasks={taskActions.handleClearCancelledTasks}
+                  onUpdateStatus={taskActions.handleUpdateStatus}
+                  onStartTimer={timerActions.handleStartTimer}
+                  onStopTimer={timerActions.handleStopTimer}
+                  activeTimer={activeTimer}
+                  setTaskCounts={setTaskCounts}
+              />;
+          }
+          if (adminView === 'userManagement') {
+              return <UserManagementDashboard
+                  allUsers={allUsers}
+                  onUsersChange={getAllUsers} // Pass function to re-fetch users after changes
+              />;
+          }
       }
       
       return <EmployeeDashboard 
@@ -301,8 +311,8 @@ const AppContent: React.FC = () => {
           handleSignOut={handleSignOut}
           onSignInClick={modals.auth.open}
           onAccountClick={modals.account.open}
-          isAdminView={isAdminView}
-          setIsAdminView={setIsAdminView}
+          adminView={adminView}
+          setAdminView={setAdminView}
           onAddNewTask={() => modals.task.open(null)}
           onEditTask={modals.task.open}
           onDeleteTask={taskActions.handleDeleteTask}
