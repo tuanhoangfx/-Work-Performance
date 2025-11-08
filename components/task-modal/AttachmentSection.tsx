@@ -14,6 +14,7 @@ interface AttachmentSectionProps {
     onAddNewFiles: (files: File[]) => void;
     onRemoveNewFile: (index: number) => void;
     onRemoveExistingAttachment: (id: number) => void;
+    isSaving: boolean;
 }
 
 const AttachmentSection: React.FC<AttachmentSectionProps> = ({
@@ -21,7 +22,8 @@ const AttachmentSection: React.FC<AttachmentSectionProps> = ({
     newFiles,
     onAddNewFiles,
     onRemoveNewFile,
-    onRemoveExistingAttachment
+    onRemoveExistingAttachment,
+    isSaving
 }) => {
     const { t } = useSettings();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,11 +55,11 @@ const AttachmentSection: React.FC<AttachmentSectionProps> = ({
             <div className="space-y-2 mt-2">
                 {attachments.map(att => {
                     const attachmentWithUrl = { ...att, name: att.file_name, size: att.file_size, dataUrl: getPublicUrl(att.file_path) };
-                    return <AttachmentItem key={att.id} file={attachmentWithUrl} onRemove={() => onRemoveExistingAttachment(att.id)} isNew={false} onPreview={() => setPreviewAttachment(attachmentWithUrl)} />;
+                    return <AttachmentItem key={att.id} file={attachmentWithUrl} onRemove={() => onRemoveExistingAttachment(att.id)} isNew={false} onPreview={() => setPreviewAttachment(attachmentWithUrl)} isSaving={false} />;
                 })}
                 {newFiles.map((file, index) => {
                     const fileWithUrl = { name: file.name, size: file.size, file_type: file.type, dataUrl: URL.createObjectURL(file) };
-                    return <AttachmentItem key={index} file={fileWithUrl} onRemove={() => onRemoveNewFile(index)} isNew={true} onPreview={() => setPreviewAttachment(fileWithUrl)} />;
+                    return <AttachmentItem key={index} file={fileWithUrl} onRemove={() => onRemoveNewFile(index)} isNew={true} onPreview={() => setPreviewAttachment(fileWithUrl)} isSaving={isSaving} />;
                 })}
             </div>
             {previewAttachment && <AttachmentPreviewModal attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}

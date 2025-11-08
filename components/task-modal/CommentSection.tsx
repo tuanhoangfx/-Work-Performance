@@ -13,6 +13,7 @@ export interface TempComment {
     user_id: string;
     created_at: string;
     task_id: number;
+    isSending?: boolean;
 }
 
 interface CommentSectionProps {
@@ -43,14 +44,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({ comments, onPostComment
                     </div>
                 ) : (
                     comments.map(comment => (
-                        <div key={comment.id} className="flex items-start gap-2.5">
+                        <div key={comment.id} className={`flex items-start gap-2.5 transition-opacity ${'isSending' in comment && comment.isSending ? 'opacity-60' : ''}`}>
                             <div className="flex-shrink-0">
                                 <Avatar user={comment.profiles} title={comment.profiles.full_name || ''} size={28} />
                             </div>
                             <div className="flex-grow">
                                 <div className="flex items-center gap-2">
                                     <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">{comment.profiles?.full_name}</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(comment.created_at, language, timezone)}</span>
+                                    <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                                        {'isSending' in comment && comment.isSending ? 'Sending...' : formatAbsoluteDateTime(comment.created_at, language, timezone)}
+                                    </time>
                                 </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">{comment.content}</p>
                             </div>

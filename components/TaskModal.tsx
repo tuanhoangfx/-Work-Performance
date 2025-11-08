@@ -4,6 +4,7 @@ import { XIcon, SpinnerIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
 import { Task, TaskAttachment, Profile, TaskComment } from '../types';
 import { supabase } from '../lib/supabase';
+import { useToasts } from '../context/ToastContext';
 
 import TaskDetailsForm from './task-modal/TaskDetailsForm';
 import AttachmentSection from './task-modal/AttachmentSection';
@@ -20,6 +21,7 @@ interface TaskModalProps {
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser }) => {
   const { t, defaultDueDateOffset, timezone } = useSettings();
+  const { addToast } = useToasts();
   
   // State for form fields
   const [title, setTitle] = useState('');
@@ -36,6 +38,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   // State for comments
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [tempNewComments, setTempNewComments] = useState<TempComment[]>([]);
+  const [optimisticComments, setOptimisticComments] = useState<TempComment[]>([]);
   const [isPostingComment, setIsPostingComment] = useState(false);
   
   // Modal/logic state
@@ -72,6 +75,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setAssigneeId(task.user_id || '');
                 fetchComments(task.id);
                 setTempNewComments([]);
+                setOptimisticComments([]);
             } else { // New task
                 setTitle('');
                 setDescription('');
@@ -86,6 +90,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setAttachments([]);
                 setComments([]);
                 setTempNewComments([]);
+                setOptimisticComments([]);
                 setAssigneeId(task?.user_id || currentUser?.id || '');
             }
             setNewFiles([]);
@@ -147,18 +152,31 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         }]);
     } else {
         setIsPostingComment(true);
+        const tempComment: TempComment = {
+            id: `optimistic-${Date.now()}`,
+            content: content,
+            profiles: currentUser,
+            user_id: currentUser.id,
+            created_at: new Date().toISOString(),
+            task_id: task.id,
+            isSending: true,
+        };
+        setOptimisticComments(prev => [...prev, tempComment]);
+        
         const { error } = await supabase.from('task_comments').insert({ task_id: task.id, user_id: currentUser.id, content });
+        
+        await fetchComments(task.id);
+        setOptimisticComments([]);
+
         if (error) {
           console.error('Error posting comment:', error);
-          alert(error.message);
-        } else {
-          fetchComments(task.id); // Refresh comments
+          addToast(error.message, 'error');
         }
         setIsPostingComment(false);
     }
   };
   
-  const combinedComments = useMemo(() => [...comments, ...tempNewComments], [comments, tempNewComments]);
+  const combinedComments = useMemo(() => [...comments, ...tempNewComments, ...optimisticComments], [comments, tempNewComments, optimisticComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,6 +248,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                     onAddNewFiles={(files) => setNewFiles(prev => [...prev, ...files])}
                     onRemoveNewFile={(index) => setNewFiles(prev => prev.filter((_, i) => i !== index))}
                     onRemoveExistingAttachment={(id) => setAttachments(prev => prev.filter(att => att.id !== id))}
+                    isSaving={isSaving}
                   />
                 </div>
                 <div className="flex flex-col mt-4 md:mt-0">

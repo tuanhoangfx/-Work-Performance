@@ -6,6 +6,7 @@ import type { Task } from './types';
 import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './components/Icons';
 import { SettingsContext, ColorScheme } from './context/SettingsContext';
 import { ToastProvider } from './context/ToastContext';
+import { useToasts } from './context/ToastContext';
 
 // Custom Hooks for logic separation
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
@@ -147,10 +148,10 @@ const AppContent: React.FC = () => {
         return;
     }
 
-    const channel = supabase.channel('public:tasks')
+    const tasksChannel = supabase.channel('public:tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
         async (payload) => {
-          console.log('Realtime change received!', payload);
+          console.log('Realtime task change received!', payload);
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const { data: task, error } = await supabase
@@ -172,9 +173,19 @@ const AppContent: React.FC = () => {
         }
       )
       .subscribe();
+      
+    const attachmentsChannel = supabase.channel('public:task_attachments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_attachments' },
+      (payload) => {
+          console.log('Realtime attachment change received!', payload);
+          notifyDataChange({ type: 'batch_update', payload: null });
+      }
+    ).subscribe();
+
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(attachmentsChannel);
     }
   }, [session, notifyDataChange]);
 

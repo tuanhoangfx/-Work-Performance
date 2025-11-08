@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { supabase } from '../../../lib/supabase';
-import { DocumentTextIcon, TrashIcon, DownloadIcon } from '../../Icons';
+import { DocumentTextIcon, TrashIcon, DownloadIcon, SpinnerIcon } from '../../Icons';
 
 const formatBytes = (bytes: number, decimals = 2) => {
     if (!+bytes) return '0 Bytes'
@@ -17,7 +18,8 @@ const AttachmentItem: React.FC<{
     onRemove: () => void;
     onPreview: () => void;
     isNew: boolean;
-}> = React.memo(({ file, onRemove, onPreview, isNew }) => {
+    isSaving: boolean;
+}> = React.memo(({ file, onRemove, onPreview, isNew, isSaving }) => {
     
     const handleDownload = async () => {
         if (isNew || !file.file_path) return;
@@ -55,7 +57,14 @@ const AttachmentItem: React.FC<{
                 )}
                 <div className="flex flex-col overflow-hidden">
                     <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatBytes(file.size)}</span>
+                     {isNew && isSaving ? (
+                        <span className="text-xs text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                            <SpinnerIcon size={12} className="animate-spin" />
+                            Uploading...
+                        </span>
+                    ) : (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{formatBytes(file.size)}</span>
+                    )}
                 </div>
             </div>
             <div className="flex items-center flex-shrink-0">
@@ -64,7 +73,7 @@ const AttachmentItem: React.FC<{
                         <DownloadIcon size={16} />
                     </button>
                 )}
-                <button type="button" onClick={onRemove} className="p-1.5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Remove">
+                <button type="button" onClick={onRemove} disabled={isNew && isSaving} className="p-1.5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Remove">
                     <TrashIcon size={16} />
                 </button>
             </div>
