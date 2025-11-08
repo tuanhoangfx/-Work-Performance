@@ -56,8 +56,15 @@ export const useProfileAndUsers = (session: Session | null) => {
 
     useEffect(() => {
         if (session?.user) {
-            getProfile(session.user);
-            // Initially, the hook uses cached users. This call fetches the latest in the background.
+            // Only refetch the profile if it's not loaded yet, or if the user has changed.
+            // This prevents the loading flash on tab refocus when the session object gets a new reference.
+            if (!profile || profile.id !== session.user.id) {
+                getProfile(session.user);
+            } else {
+                // If profile is already loaded for the current user, ensure loading is false.
+                setLoadingProfile(false);
+            }
+            // We can still refresh the user list in the background.
             getAllUsers();
         } else {
             setProfile(null);
@@ -65,7 +72,7 @@ export const useProfileAndUsers = (session: Session | null) => {
             setLoadingProfile(false);
             setAdminView('myTasks');
         }
-    }, [session, getProfile, getAllUsers, setAllUsers]);
+    }, [session, profile, getProfile, getAllUsers, setAllUsers]);
 
     return { profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers };
 };
