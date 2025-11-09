@@ -1,6 +1,6 @@
 import { Task } from '../types';
 
-export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at' | 'status';
+export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at' | 'status' | 'compound_status_priority';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {
@@ -18,6 +18,21 @@ export const sortTasks = (tasks: Task[], config: SortConfig): Task[] => {
     const dir = direction === 'asc' ? 1 : -1;
 
     let compareResult = 0;
+
+    if (field === 'compound_status_priority') {
+      // Primary sort: status (desc)
+      compareResult = statusOrder[b.status] - statusOrder[a.status];
+      if (compareResult !== 0) return compareResult;
+
+      // Secondary sort: priority (desc)
+      compareResult = priorityOrder[b.priority] - priorityOrder[a.priority];
+      if (compareResult !== 0) return compareResult;
+
+      // Tertiary sort: creation date (asc)
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateA - dateB;
+    }
 
     if (field === 'priority') {
       compareResult = (priorityOrder[a.priority] - priorityOrder[b.priority]) * dir;

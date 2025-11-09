@@ -8,8 +8,9 @@ import CalendarView from '../../CalendarView';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
 import type { DataChange, TaskCounts } from '../../../App';
-import { type SortConfig, sortTasks, getTodayDateString, getEndOfWeekDateString } from '../../../lib/taskUtils';
+import { type SortConfig, sortTasks } from '../../../lib/taskUtils';
 import { useCachedSupabaseQuery } from '../../../hooks/useCachedSupabaseQuery';
+import { useTaskFilter } from '../../../hooks/useTaskFilter';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
 import DashboardViewToggle from '../DashboardViewToggle';
@@ -45,7 +46,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     
     const [calendarSort, setCalendarSort] = useState<CalendarSortState>({
         id: 'default',
-        config: { field: 'priority', direction: 'desc' }
+        config: { field: 'compound_status_priority', direction: 'desc' }
     });
     
     // State for time range filtering
@@ -137,51 +138,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     }, [tasks_safe, timeRange, customMonth, customStartDate, customEndDate]);
 
 
-    const filteredTasksForBoard = useMemo(() => {
-        const today = getTodayDateString(timezone);
-        const endOfWeek = getEndOfWeekDateString(timezone);
-
-        return tasks_safe.filter(task => {
-            const trimmedSearch = filters.searchTerm.trim();
-            const isNumericSearch = /^\d+$/.test(trimmedSearch);
-
-            let searchTermMatch = true;
-            if (trimmedSearch) {
-                 if (isNumericSearch) {
-                    searchTermMatch = task.id === parseInt(trimmedSearch, 10);
-                } else {
-                    const lowerCaseSearch = trimmedSearch.toLowerCase();
-                    searchTermMatch = task.title.toLowerCase().includes(lowerCaseSearch) ||
-                                      (task.description && task.description.toLowerCase().includes(lowerCaseSearch)) ||
-                                      (task.task_comments && task.task_comments.some(c => c.content.toLowerCase().includes(lowerCaseSearch)));
-                }
-            }
-            
-            const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
-            const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
-            
-            let dueDateMatch = true;
-            if (filters.dueDate !== 'all') {
-                if (!task.due_date) {
-                    dueDateMatch = false;
-                } else {
-                    switch (filters.dueDate) {
-                        case 'overdue':
-                            dueDateMatch = task.due_date < today && !['done', 'cancelled'].includes(task.status);
-                            break;
-                        case 'today':
-                            dueDateMatch = task.due_date === today;
-                            break;
-                        case 'this_week':
-                            dueDateMatch = task.due_date >= today && task.due_date <= endOfWeek;
-                            break;
-                    }
-                }
-            }
-
-            return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch;
-        });
-    }, [tasks_safe, filters, timezone]);
+    const filteredTasksForBoard = useTaskFilter(tasks_safe, filters, timezone);
     
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;

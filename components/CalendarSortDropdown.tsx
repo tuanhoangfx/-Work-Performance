@@ -32,7 +32,7 @@ const CalendarSortDropdown: React.FC<CalendarSortDropdownProps> = ({ currentSort
     }, []);
 
     const sortOptions: CalendarSortOption[] = [
-        { id: 'default', label: t.sortDefault, config: { field: 'priority', direction: 'desc' } },
+        { id: 'default', label: t.sortDefault, config: { field: 'compound_status_priority', direction: 'desc' } },
         { id: 'status', label: t.sortStatus, config: { field: 'status', direction: 'desc' } },
         { id: 'priority', label: t.sortPriority, config: { field: 'priority', direction: 'desc' } },
         { id: 'creation_date', label: t.sortCreationDate, config: { field: 'created_at', direction: 'desc' } },
