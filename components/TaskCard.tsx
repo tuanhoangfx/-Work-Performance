@@ -104,7 +104,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
 
     const handleCopyId = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(task.id.toString());
+        navigator.clipboard.writeText(`#${task.id.toString().padStart(4, '0')}`);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };

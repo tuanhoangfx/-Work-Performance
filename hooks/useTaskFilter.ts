@@ -10,13 +10,25 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
 
         return tasks.filter(task => {
             const trimmedSearch = filters.searchTerm.trim();
-            const isNumericSearch = /^\d+$/.test(trimmedSearch);
 
             let searchTermMatch = true;
             if (trimmedSearch) {
-                if (isNumericSearch) {
-                    searchTermMatch = task.id === parseInt(trimmedSearch, 10);
+                let searchId: number | null = null;
+
+                // Handle search by ID, including formats like '#0002' or '2'
+                if (trimmedSearch.startsWith('#')) {
+                    const numericPart = trimmedSearch.substring(1);
+                    if (/^\d+$/.test(numericPart)) {
+                        searchId = parseInt(numericPart, 10);
+                    }
+                } else if (/^\d+$/.test(trimmedSearch)) {
+                    searchId = parseInt(trimmedSearch, 10);
+                }
+
+                if (searchId !== null) {
+                    searchTermMatch = task.id === searchId;
                 } else {
+                    // Fallback to text search if not an ID format
                     const lowerCaseSearch = trimmedSearch.toLowerCase();
                     searchTermMatch = task.title.toLowerCase().includes(lowerCaseSearch) ||
                         (task.description && task.description.toLowerCase().includes(lowerCaseSearch)) ||
