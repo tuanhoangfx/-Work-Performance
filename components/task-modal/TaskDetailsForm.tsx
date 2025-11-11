@@ -11,25 +11,17 @@ interface TaskDetailsFormProps {
     taskData: {
         title: string;
         description: string;
-        status: Task['status'];
         priority: Task['priority'];
         dueDate: string;
         assigneeId: string;
     };
-    onFieldChange: (field: keyof TaskDetailsFormProps['taskData'], value: string) => void;
+    onFieldChange: (field: keyof TaskDetailsFormProps['taskData'], value: string | Task['priority']) => void;
     allUsers: Profile[];
     validationError: 'title' | 'assignee' | null;
 }
 
 const TaskDetailsForm: React.FC<TaskDetailsFormProps> = ({ taskData, onFieldChange, allUsers, validationError }) => {
     const { t } = useSettings();
-
-    const statusConfig: { [key in Task['status']]: CustomSelectOption } = {
-        todo: { label: t.todo, icon: ClipboardListIcon, color: 'text-orange-600 dark:text-orange-400' },
-        inprogress: { label: t.inprogress, icon: SpinnerIcon, iconClass: 'animate-spin', color: 'text-indigo-600 dark:text-indigo-400' },
-        done: { label: t.done, icon: CheckCircleIcon, color: 'text-green-600 dark:text-green-400' },
-        cancelled: { label: t.cancelled, icon: XCircleIcon, color: 'text-gray-500 dark:text-gray-400' },
-    };
 
     const priorityConfig: { [key in Task['priority']]: CustomSelectOption } = {
         low: { label: t.low, icon: '💤', color: 'text-green-600 dark:text-green-400' },
@@ -38,7 +30,7 @@ const TaskDetailsForm: React.FC<TaskDetailsFormProps> = ({ taskData, onFieldChan
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             <div>
                 <input
                     type="text"
@@ -81,14 +73,6 @@ const TaskDetailsForm: React.FC<TaskDetailsFormProps> = ({ taskData, onFieldChan
                             className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm"
                         />
                     </div>
-                </div>
-                <div>
-                    <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.status}</label>
-                    <StatusPrioritySelect
-                        value={taskData.status}
-                        options={statusConfig}
-                        onChange={(value) => onFieldChange('status', value)}
-                    />
                 </div>
                 <div>
                     <label className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{t.priority}</label>

@@ -9,6 +9,7 @@ import { useToasts } from '../context/ToastContext';
 import TaskDetailsForm from './task-modal/TaskDetailsForm';
 import AttachmentSection from './task-modal/AttachmentSection';
 import CommentSection, { TempComment } from './task-modal/CommentSection';
+import TaskStatusStepper from './task-modal/TaskStatusStepper';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -207,6 +208,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   }
 
   const taskData = { title, description, status, priority, dueDate, assigneeId };
+  const formTaskData = { title, description, priority, dueDate, assigneeId };
+
 
   if (!isOpen) return null;
 
@@ -223,21 +226,28 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         onClick={e => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
-            <div className="p-3 sm:p-6 pb-0 relative flex-shrink-0">
+            <div className="flex justify-end items-center px-3 py-2 sm:p-4 flex-shrink-0">
                 <button 
                     type="button"
                     onClick={onClose} 
-                    className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors z-10"
+                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors z-10"
                     aria-label={t.close}
                 >
                     <XIcon size={24} />
                 </button>
             </div>
             <div className="flex-grow overflow-y-auto">
-              <div className="p-3 sm:px-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-0">
-                <div className="space-y-4">
+              <div className="px-3 pt-0 sm:px-6 sm:pt-0">
+                <TaskStatusStepper 
+                    currentStatus={status} 
+                    onStatusChange={(newStatus) => handleFieldChange('status', newStatus)}
+                />
+              </div>
+
+              <div className="px-3 py-2 sm:px-6 sm:py-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-0">
+                <div className="space-y-3">
                   <TaskDetailsForm
-                    taskData={taskData}
+                    taskData={formTaskData}
                     onFieldChange={handleFieldChange}
                     allUsers={allUsers}
                     validationError={validationError}
@@ -251,7 +261,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                     isSaving={isSaving}
                   />
                 </div>
-                <div className="flex flex-col mt-4 md:mt-0">
+                <div className="flex flex-col mt-3 md:mt-0">
                   <CommentSection
                     comments={combinedComments}
                     isPostingComment={isPostingComment}
@@ -260,7 +270,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:px-6 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">
+            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 sm:px-6 sm:py-3 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">
                 <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.cancel}</button>
                 <button type="submit" disabled={isSaving} className="px-4 py-2 w-24 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-md shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50 flex justify-center items-center">
                     {isSaving ? <SpinnerIcon className="animate-spin" size={20} /> : t.save}

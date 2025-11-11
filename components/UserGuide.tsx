@@ -100,15 +100,19 @@ const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose }) => {
         const lowercasedFilter = searchTerm.toLowerCase();
 
         return guideSections.filter(section => {
-            // Check if title matches by safely converting potentially undefined translation values to empty strings.
-            const titleMatch = (t[section.titleKey] || '').toLowerCase().includes(lowercasedFilter);
-            if (titleMatch) return true;
+            const titleText = t[section.titleKey];
+            const titleMatch = typeof titleText === 'string' && titleText.toLowerCase().includes(lowercasedFilter);
+            if (titleMatch) {
+                return true;
+            }
             
-            // Check if any content item matches, also with safe conversion.
-            const contentMatch = section.items.some(item =>
-                (t[item.strongKey] || '').toLowerCase().includes(lowercasedFilter) ||
-                (t[item.textKey] || '').toLowerCase().includes(lowercasedFilter)
-            );
+            const contentMatch = section.items.some(item => {
+                const strongText = t[item.strongKey];
+                const regularText = t[item.textKey];
+                const strongMatch = typeof strongText === 'string' && strongText.toLowerCase().includes(lowercasedFilter);
+                const textMatch = typeof regularText === 'string' && regularText.toLowerCase().includes(lowercasedFilter);
+                return strongMatch || textMatch;
+            });
             return contentMatch;
         });
 
