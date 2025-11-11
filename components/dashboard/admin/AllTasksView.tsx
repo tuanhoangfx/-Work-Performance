@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
@@ -11,6 +12,7 @@ import { useCachedSupabaseQuery } from '../../../hooks/useCachedSupabaseQuery';
 import { useTaskFilter } from '../../../hooks/useTaskFilter';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
+import MultiSelectEmployeeDropdown from './MultiSelectEmployeeDropdown';
 
 interface AllTasksViewProps {
     lastDataChange: DataChange | null;
@@ -24,7 +26,7 @@ interface AllTasksViewProps {
 
 const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
     const { t, timezone } = useSettings();
-    const [filterUserId, setFilterUserId] = useState<string>('all');
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
     const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all', dueDate: 'all' });
@@ -52,6 +54,13 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
     
     const allTasks_safe = allTasks || [];
     
+    const filteredTasksByAssignee = useMemo(() => {
+        if (selectedUserIds.length === 0) {
+            return allTasks_safe;
+        }
+        return allTasks_safe.filter(task => selectedUserIds.includes(task.user_id));
+    }, [allTasks_safe, selectedUserIds]);
+
     const { tasksForSummaryAndChart } = useMemo(() => {
         const now = new Date();
         let startDate: Date;
@@ -91,14 +100,14 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                 endDate = todayEnd;
                 break;
             case 'customMonth':
-                if (!customMonth) return { tasksForSummaryAndChart: allTasks_safe };
+                if (!customMonth) return { tasksForSummaryAndChart: filteredTasksByAssignee };
                 const [year, month] = customMonth.split('-').map(Number);
                 startDate = new Date(year, month - 1, 1);
                 endDate = new Date(year, month, 0);
                 endDate.setHours(23, 59, 59, 999);
                 break;
             case 'customRange':
-                if (!customStartDate) return { tasksForSummaryAndChart: allTasks_safe };
+                if (!customStartDate) return { tasksForSummaryAndChart: filteredTasksByAssignee };
                 startDate = new Date(customStartDate);
                 startDate.setHours(0, 0, 0, 0);
                 endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
@@ -109,17 +118,13 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                 endDate = todayEnd;
         }
 
-        const filtered = allTasks_safe.filter(task => {
+        const filtered = filteredTasksByAssignee.filter(task => {
             const taskDate = new Date(task.created_at);
             return taskDate >= startDate && taskDate <= endDate;
         });
         return { tasksForSummaryAndChart: filtered };
-    }, [allTasks_safe, timeRange, customMonth, customStartDate, customEndDate]);
+    }, [filteredTasksByAssignee, timeRange, customMonth, customStartDate, customEndDate]);
 
-
-    const filteredTasksByAssignee = useMemo(() => {
-        return allTasks_safe.filter(task => filterUserId === 'all' || task.user_id === filterUserId);
-    }, [allTasks_safe, filterUserId]);
 
     const filteredTasksForBoard = useTaskFilter(filteredTasksByAssignee, filters, timezone);
 
@@ -185,14 +190,11 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                     customEndDate={customEndDate}
                     setCustomEndDate={setCustomEndDate}
                 >
-                    <select 
-                        value={filterUserId} 
-                        onChange={e => setFilterUserId(e.target.value)}
-                        className="block w-44 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] text-sm"
-                    >
-                        <option value="all">{t.allEmployees}</option>
-                        {allUsers.map(user => <option key={user.id} value={user.id}>{user.full_name}</option>)}
-                    </select>
+                    <MultiSelectEmployeeDropdown
+                        allUsers={allUsers}
+                        selectedUserIds={selectedUserIds}
+                        onChange={setSelectedUserIds}
+                    />
                 </PerformanceSummary>
                 <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
                 {loading && allTasks_safe.length === 0 ? <TaskBoardSkeleton /> : (
