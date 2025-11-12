@@ -167,9 +167,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                     <PriorityIndicator priority={task.priority} />
                     {task.due_date && (
                         <div title={t.dueDateLabel} className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-500 dark:text-red-400 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
-                            {isOverdue && <span className="animate-gentle-shake">⏰</span>}
                             <CalendarIcon size={12} />
                             <span>{formatShortDate(task.due_date)}</span>
+                            {isOverdue && <span className="animate-gentle-shake">⏰</span>}
                         </div>
                     )}
                 </div>

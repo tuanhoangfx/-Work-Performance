@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
 import type { Profile, Task } from '../../../types';
-import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
+import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon, UsersIcon } from '../../Icons';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
 import type { DataChange, TaskCounts } from '../../../App';
@@ -12,7 +11,7 @@ import { useCachedSupabaseQuery } from '../../../hooks/useCachedSupabaseQuery';
 import { useTaskFilter } from '../../../hooks/useTaskFilter';
 import { TaskBoardSkeleton } from '../../Skeleton';
 import TaskColumn from '../../TaskColumn';
-import MultiSelectEmployeeDropdown from './MultiSelectEmployeeDropdown';
+import MultiSelectDropdown from './MultiSelectEmployeeDropdown';
 
 interface AllTasksViewProps {
     lastDataChange: DataChange | null;
@@ -25,11 +24,12 @@ interface AllTasksViewProps {
 }
 
 const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
-    const { t, timezone } = useSettings();
+    // FIX: Destructure timezone from useSettings to pass it to the useTaskFilter hook.
+    const { t, language, timezone } = useSettings();
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all', dueDate: 'all' });
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
@@ -161,6 +161,18 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
             done: done.length,
         });
     }, [todo, inprogress, done, setTaskCounts]);
+    
+    const getEmployeeLabel = (selectedCount: number, totalCount: number) => {
+        if (selectedCount === 0 || selectedCount === totalCount) {
+          return t.allEmployees;
+        }
+        if (selectedCount === 1) {
+            const user = allUsers.find(u => u.id === selectedUserIds[0]);
+            return user?.full_name || `1 ${t.employee}`;
+        }
+        const pluralEmployee = language === 'vi' ? t.employee : `${t.employee}s`;
+        return `${selectedCount}/${allUsers.length} ${pluralEmployee}`;
+    };
 
     const statusConfig = {
         todo: { icon: <ClipboardListIcon size={16} className="text-orange-500" />, borderColor: 'border-orange-500', title: t.todo },
@@ -178,9 +190,10 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
     return (
         <div className="w-full">
             <div className="space-y-6">
-                <PerformanceSummary
-                    title={t.allTasksBoard}
-                    tasks={tasksForSummaryAndChart}
+                 <FilterBar 
+                    filters={filters} 
+                    onFilterChange={setFilters} 
+                    allUsers={allUsers}
                     timeRange={timeRange}
                     setTimeRange={setTimeRange}
                     customMonth={customMonth}
@@ -190,13 +203,20 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                     customEndDate={customEndDate}
                     setCustomEndDate={setCustomEndDate}
                 >
-                    <MultiSelectEmployeeDropdown
-                        allUsers={allUsers}
-                        selectedUserIds={selectedUserIds}
+                    <MultiSelectDropdown
+                        options={allUsers.map(u => ({ id: u.id, label: u.full_name || '', avatarUrl: u.avatar_url || undefined }))}
+                        selectedIds={selectedUserIds}
                         onChange={setSelectedUserIds}
+                        buttonLabel={getEmployeeLabel}
+                        buttonIcon={<UsersIcon size={16} />}
+                        searchPlaceholder={t.searchUsers}
+                        allLabel={t.allEmployees}
                     />
-                </PerformanceSummary>
-                <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
+                </FilterBar>
+                <PerformanceSummary
+                    title={t.allTasksBoard}
+                    tasks={tasksForSummaryAndChart}
+                />
                 {loading && allTasks_safe.length === 0 ? <TaskBoardSkeleton /> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[60vh]">
                         {columns.map(({ tasks, status }) => (

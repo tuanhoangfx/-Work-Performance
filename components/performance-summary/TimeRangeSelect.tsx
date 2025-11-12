@@ -18,7 +18,7 @@ const TimeRangeSelect: React.FC<{ value: TimeRange; onChange: (range: TimeRange)
   const selectedOption = options.find(o => o.value === value) || options[0];
 
   return (
-    <div className="relative w-44" ref={ref}>
+    <div className="relative w-full" ref={ref}>
         <button type="button" onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-left text-sm">
             <div className="flex items-center gap-2 overflow-hidden">
                 <CalendarIcon size={16} className="text-gray-500 flex-shrink-0"/>

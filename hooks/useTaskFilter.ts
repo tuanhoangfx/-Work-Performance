@@ -36,27 +36,29 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
                 }
             }
 
-            const creatorMatch = filters.creatorId === 'all' || task.created_by === filters.creatorId;
-            const priorityMatch = filters.priority === 'all' || task.priority === filters.priority;
+            const creatorMatch = filters.creatorIds.length === 0 || (task.created_by && filters.creatorIds.includes(task.created_by));
+            const priorityMatch = filters.priorities.length === 0 || filters.priorities.includes(task.priority);
 
             let dueDateMatch = true;
-            if (filters.dueDate !== 'all') {
+            if (filters.dueDates.length > 0) {
                 if (!task.due_date) {
                     dueDateMatch = false;
                 } else {
-                    switch (filters.dueDate) {
-                        case 'overdue':
-                            dueDateMatch = task.due_date < today && !['done', 'cancelled'].includes(task.status);
-                            break;
-                        case 'today':
-                            dueDateMatch = task.due_date === today;
-                            break;
-                        case 'this_week':
-                            dueDateMatch = task.due_date >= today && task.due_date <= endOfWeek;
-                            break;
-                    }
+                    dueDateMatch = filters.dueDates.some(dueDateFilter => {
+                        switch (dueDateFilter) {
+                            case 'overdue':
+                                return task.due_date! < today && !['done', 'cancelled'].includes(task.status);
+                            case 'today':
+                                return task.due_date === today;
+                            case 'this_week':
+                                return task.due_date >= today && task.due_date <= endOfWeek;
+                            default:
+                                return false;
+                        }
+                    });
                 }
             }
+
 
             return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch;
         });

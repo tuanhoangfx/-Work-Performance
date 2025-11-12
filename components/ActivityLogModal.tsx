@@ -7,6 +7,7 @@ import { formatAbsoluteDateTime } from '../lib/taskUtils';
 import Avatar from './common/Avatar';
 import VirtualItem from './common/VirtualItem';
 import { ActivityLogItemSkeleton } from './Skeleton';
+import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
 
 interface ActivityLogModalProps {
   isOpen: boolean;
@@ -18,8 +19,8 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterUser, setFilterUser] = useState('all');
-    const [filterAction, setFilterAction] = useState('all');
+    const [filterUsers, setFilterUsers] = useState<string[]>([]);
+    const [filterActions, setFilterActions] = useState<string[]>([]);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -44,8 +45,8 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
         } else {
             // Reset state on close
             setSearchTerm('');
-            setFilterUser('all');
-            setFilterAction('all');
+            setFilterUsers([]);
+            setFilterActions([]);
         }
     }, [isOpen]);
 
@@ -94,14 +95,14 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
         }
     }, [t]);
 
-    const uniqueUsers = useMemo(() => {
-        const users = new Map<string, { id: string, name: string }>();
+    const userOptions: MultiSelectOption[] = useMemo(() => {
+        const users = new Map<string, { id: string, label: string, avatarUrl?: string }>();
         logs.forEach(log => {
             if (log.profiles && !users.has(log.profiles.id)) {
-                users.set(log.profiles.id, { id: log.profiles.id, name: log.profiles.full_name || 'Unknown' });
+                users.set(log.profiles.id, { id: log.profiles.id, label: log.profiles.full_name || 'Unknown', avatarUrl: log.profiles.avatar_url || undefined });
             }
         });
-        return Array.from(users.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(users.values()).sort((a, b) => a.label.localeCompare(b.label));
     }, [logs]);
 
     const actionTypes: { [key: string]: string } = useMemo(() => ({
@@ -114,12 +115,16 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
         cleared_cancelled_tasks: t.log_action_cleared_cancelled_tasks,
     }), [t]);
 
-    const uniqueActions = useMemo(() => Array.from(new Set(logs.map(log => log.action))), [logs]);
+    const actionOptions: MultiSelectOption[] = useMemo(() => 
+        // FIX: Cast to string[] to resolve TypeScript error where `action` is inferred as `unknown`.
+        (Array.from(new Set(logs.map(log => log.action))) as string[])
+        .map(action => ({ id: action, label: actionTypes[action] || action }))
+    , [logs, actionTypes]);
 
     const filteredLogs = useMemo(() => {
         return logs.filter(log => {
-            const userMatch = filterUser === 'all' || log.user_id === filterUser;
-            const actionMatch = filterAction === 'all' || log.action === filterAction;
+            const userMatch = filterUsers.length === 0 || (log.user_id && filterUsers.includes(log.user_id));
+            const actionMatch = filterActions.length === 0 || filterActions.includes(log.action);
             
             let searchMatch = true;
             if (searchTerm.trim()) {
@@ -130,7 +135,21 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
             
             return userMatch && actionMatch && searchMatch;
         });
-    }, [logs, searchTerm, filterUser, filterAction, formatLogMessage]);
+    }, [logs, searchTerm, filterUsers, filterActions, formatLogMessage]);
+    
+    const getUserLabel = (selectedCount: number, totalCount: number) => {
+        if (selectedCount === 0 || selectedCount === totalCount) return t.log_allUsers;
+        if (selectedCount === 1) {
+            const user = userOptions.find(u => u.id === filterUsers[0]);
+            return user?.label || '1 User';
+        }
+        return `${selectedCount} Users`;
+    };
+
+    const getActionLabel = (selectedCount: number, totalCount: number) => {
+        if (selectedCount === 0 || selectedCount === totalCount) return t.log_allActions;
+        return `${selectedCount} Actions`;
+    };
 
 
     if (!isOpen) return null;
@@ -172,28 +191,26 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                                 <SearchIcon size={16} className="text-gray-400" />
                             </div>
                         </div>
-                        <select
-                            value={filterUser}
-                            onChange={(e) => setFilterUser(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            aria-label={t.log_filterByUser}
-                        >
-                            <option value="all">{t.log_allUsers}</option>
-                            {uniqueUsers.map(user => (
-                                <option key={user.id} value={user.id}>{user.name}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={filterAction}
-                            onChange={(e) => setFilterAction(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            aria-label={t.log_filterByAction}
-                        >
-                            <option value="all">{t.log_allActions}</option>
-                            {uniqueActions.map(action => (
-                                <option key={action} value={action}>{actionTypes[action] || action}</option>
-                            ))}
-                        </select>
+                        <MultiSelectDropdown
+                            options={userOptions}
+                            selectedIds={filterUsers}
+                            onChange={setFilterUsers}
+                            buttonLabel={getUserLabel}
+                            buttonIcon={<></>}
+                            searchPlaceholder={t.searchUsers}
+                            allLabel={t.log_allUsers}
+                            widthClass="w-full"
+                        />
+                        <MultiSelectDropdown
+                            options={actionOptions}
+                            selectedIds={filterActions}
+                            onChange={setFilterActions}
+                            buttonLabel={getActionLabel}
+                            buttonIcon={<></>}
+                            searchPlaceholder="Search actions..."
+                            allLabel={t.log_allActions}
+                            widthClass="w-full"
+                        />
                     </div>
                 </div>
 

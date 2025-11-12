@@ -36,7 +36,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all', dueDate: 'all' });
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
@@ -220,9 +220,10 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     
     return (
         <div className="w-full animate-fadeInUp space-y-6">
-            <PerformanceSummary
-                title={t.performanceSummary}
-                tasks={tasksForSummaryAndChart}
+            <FilterBar 
+                filters={filters} 
+                onFilterChange={setFilters} 
+                allUsers={allUsers}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
                 customMonth={customMonth}
@@ -231,12 +232,15 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                 setCustomStartDate={setCustomStartDate}
                 customEndDate={customEndDate}
                 setCustomEndDate={setCustomEndDate}
-             >
+            >
                 <DashboardViewToggle view={view} setView={setView} />
-            </PerformanceSummary>
-            
-            <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
+            </FilterBar>
 
+            <PerformanceSummary
+                title={t.performanceSummary}
+                tasks={tasksForSummaryAndChart}
+             />
+            
             {loading && tasks_safe.length === 0 ? (
                 <TaskBoardSkeleton />
             ) : view === 'board' ? (

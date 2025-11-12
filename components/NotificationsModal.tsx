@@ -5,6 +5,7 @@ import { XIcon, SpinnerIcon, BellIcon, SearchIcon } from './Icons';
 import type { Notification } from '../types';
 import { formatAbsoluteDateTime } from '../lib/taskUtils';
 import Avatar from './common/Avatar';
+import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -18,9 +19,9 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterActor, setFilterActor] = useState('all');
-    const [filterType, setFilterType] = useState('all');
-    const [filterReadStatus, setFilterReadStatus] = useState<'all' | 'read' | 'unread'>('all');
+    const [filterActors, setFilterActors] = useState<string[]>([]);
+    const [filterTypes, setFilterTypes] = useState<string[]>([]);
+    const [filterReadStatuses, setFilterReadStatuses] = useState<string[]>([]);
 
     const formatNotificationMessage = (notification: Notification) => {
         const actorName = notification.profiles?.full_name || 'Someone';
@@ -64,9 +65,9 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         } else {
              // Reset state on close
             setSearchTerm('');
-            setFilterActor('all');
-            setFilterType('all');
-            setFilterReadStatus('all');
+            setFilterActors([]);
+            setFilterTypes([]);
+            setFilterReadStatuses([]);
         }
     }, [isOpen]);
 
@@ -131,28 +132,36 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         }
     };
 
-    const uniqueActors = useMemo(() => {
-        const actors = new Map<string, { id: string, name: string }>();
+    const actorOptions: MultiSelectOption[] = useMemo(() => {
+        const actors = new Map<string, { id: string; label: string, avatarUrl?: string }>();
         notifications.forEach(notif => {
             if (notif.profiles && !actors.has(notif.profiles.id)) {
-                actors.set(notif.profiles.id, { id: notif.profiles.id, name: notif.profiles.full_name || 'Unknown' });
+                actors.set(notif.profiles.id, { id: notif.profiles.id, label: notif.profiles.full_name || 'Unknown', avatarUrl: notif.profiles.avatar_url || undefined });
             }
         });
-        return Array.from(actors.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(actors.values()).sort((a, b) => a.label.localeCompare(b.label));
     }, [notifications]);
 
-    const notificationTypes: { [key: string]: string } = useMemo(() => ({
-        new_task_assigned: t.notif_type_new_task,
-        new_comment: t.notif_type_new_comment,
-    }), [t]);
-
-    const uniqueNotificationTypes = useMemo(() => Array.from(new Set(notifications.map(n => n.type))), [notifications]);
+    const typeOptions: MultiSelectOption[] = useMemo(() => {
+        const typeLabels: { [key: string]: string } = {
+            new_task_assigned: t.notif_type_new_task,
+            new_comment: t.notif_type_new_comment,
+        };
+        // FIX: Cast to string[] to resolve TypeScript error where `type` is inferred as `unknown`.
+        return (Array.from(new Set(notifications.map(n => n.type))) as string[])
+            .map(type => ({ id: type, label: typeLabels[type] || type }));
+    }, [notifications, t]);
+    
+    const statusOptions: MultiSelectOption[] = [
+        { id: 'unread', label: t.notif_status_unread },
+        { id: 'read', label: t.notif_status_read },
+    ];
 
     const filteredNotifications = useMemo(() => {
         return notifications.filter(notification => {
-            const actorMatch = filterActor === 'all' || notification.actor_id === filterActor;
-            const typeMatch = filterType === 'all' || notification.type === filterType;
-            const readStatusMatch = filterReadStatus === 'all' || (filterReadStatus === 'read' ? notification.is_read : !notification.is_read);
+            const actorMatch = filterActors.length === 0 || (notification.actor_id && filterActors.includes(notification.actor_id));
+            const typeMatch = filterTypes.length === 0 || filterTypes.includes(notification.type);
+            const readStatusMatch = filterReadStatuses.length === 0 || filterReadStatuses.includes(notification.is_read ? 'read' : 'unread');
 
             let searchMatch = true;
             if (searchTerm.trim()) {
@@ -163,7 +172,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
             
             return actorMatch && typeMatch && searchMatch && readStatusMatch;
         });
-    }, [notifications, searchTerm, filterActor, filterType, filterReadStatus, formatNotificationMessage]);
+    }, [notifications, searchTerm, filterActors, filterTypes, filterReadStatuses, formatNotificationMessage]);
 
 
     const hasUnread = notifications.some(n => !n.is_read);
@@ -179,7 +188,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
             aria-labelledby="notifications-title"
         >
             <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -207,38 +216,36 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                                 <SearchIcon size={16} className="text-gray-400" />
                             </div>
                         </div>
-                        <select
-                            value={filterActor}
-                            onChange={(e) => setFilterActor(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            aria-label={t.notif_filterByActor}
-                        >
-                            <option value="all">{t.notif_allActors}</option>
-                            {uniqueActors.map(user => (
-                                <option key={user.id} value={user.id}>{user.name}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            aria-label={t.notif_filterByType}
-                        >
-                            <option value="all">{t.notif_allTypes}</option>
-                            {uniqueNotificationTypes.map(type => (
-                                <option key={type} value={type}>{notificationTypes[type] || type}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={filterReadStatus}
-                            onChange={(e) => setFilterReadStatus(e.target.value as 'all' | 'read' | 'unread')}
-                            className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            aria-label={t.notif_filterByStatus}
-                        >
-                            <option value="all">{t.notif_allStatuses}</option>
-                            <option value="unread">{t.notif_status_unread}</option>
-                            <option value="read">{t.notif_status_read}</option>
-                        </select>
+                        <MultiSelectDropdown 
+                            options={actorOptions} 
+                            selectedIds={filterActors} 
+                            onChange={setFilterActors} 
+                            buttonLabel={(s, t) => s === 0 || s === t ? 'All Actors' : `${s} Actors`}
+                            buttonIcon={<></>}
+                            allLabel={t.notif_allActors}
+                            searchPlaceholder={t.searchUsers}
+                            widthClass="w-full"
+                         />
+                         <MultiSelectDropdown 
+                            options={typeOptions} 
+                            selectedIds={filterTypes} 
+                            onChange={setFilterTypes} 
+                            buttonLabel={(s) => s === 0 ? 'All Types' : `${s} Types`}
+                            buttonIcon={<></>}
+                            allLabel={t.notif_allTypes}
+                            searchPlaceholder="Search types..."
+                            widthClass="w-full"
+                         />
+                         <MultiSelectDropdown 
+                            options={statusOptions} 
+                            selectedIds={filterReadStatuses} 
+                            onChange={setFilterReadStatuses} 
+                            buttonLabel={(s) => s === 0 ? 'All Statuses' : `${s} Statuses`}
+                            buttonIcon={<></>}
+                            allLabel={t.notif_allStatuses}
+                            searchPlaceholder="Search status..."
+                            widthClass="w-full"
+                         />
                     </div>
                 </div>
 

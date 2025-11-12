@@ -30,7 +30,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorId: 'all', priority: 'all', dueDate: 'all' });
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
