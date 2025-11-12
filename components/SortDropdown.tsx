@@ -37,7 +37,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({ status, config, onChange })
     ];
     
     if (status === 'done' || status === 'cancelled') {
-        baseSortOptions.push({ field: 'updated_at', label: 'Completion Time' });
+        baseSortOptions.push({ field: 'updated_at', label: t.completionTime });
     }
 
     const handleSortChange = (field: SortField) => {

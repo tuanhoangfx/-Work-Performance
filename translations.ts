@@ -112,6 +112,8 @@ const en: Translation = {
 
   // Task Card
   creationTime: "Created at",
+  completionTime: "Finished At",
+  completionDate: "Completed at",
   assignee: "Assignee",
   createdBy: "Created by",
   totalTimeLogged: "Total time logged",
@@ -124,7 +126,7 @@ const en: Translation = {
   // Task Modal
   taskTitleLabel: "Task Title",
   descriptionLabel: "Description (optional)",
-  dueDateLabel: "Due Date (optional)",
+  dueDateLabel: "Due Date",
   attachments: "Attachments",
   addAttachment: "Add Attachment",
   pasteOrDrop: "Drop files here or paste from clipboard",
@@ -267,7 +269,7 @@ const en: Translation = {
   filterByPriority: "Priority",
   allPriorities: "All Priorities",
   filterByDueDate: "Due Date",
-  allDates: "All Dates",
+  allDates: "All Due Dates",
   dueToday: "Due Today",
   dueThisWeek: "Due This Week",
   
@@ -394,6 +396,8 @@ const vi: Translation = {
 
   // Task Card
   creationTime: "Tạo lúc",
+  completionTime: "Hoàn thành lúc",
+  completionDate: "Hoàn thành lúc",
   assignee: "Người phụ trách",
   createdBy: "Người giao việc",
   totalTimeLogged: "Tổng thời gian",
@@ -406,7 +410,7 @@ const vi: Translation = {
   // Task Modal
   taskTitleLabel: "Tiêu đề công việc",
   descriptionLabel: "Mô tả (tùy chọn)",
-  dueDateLabel: "Ngày hết hạn (tùy chọn)",
+  dueDateLabel: "Ngày hết hạn",
   attachments: "Tệp đính kèm",
   addAttachment: "Thêm tệp",
   pasteOrDrop: "Thả tệp vào đây hoặc dán từ clipboard",
@@ -549,7 +553,7 @@ const vi: Translation = {
   filterByPriority: "Ưu tiên",
   allPriorities: "Tất cả ưu tiên",
   filterByDueDate: "Ngày hết hạn",
-  allDates: "Tất cả ngày",
+  allDates: "Tất cả ngày hết hạn",
   // FIX: Removed duplicate 'overdue' key that caused a compilation error. The 'overdue' key is already defined in the 'Task Status' section.
   dueToday: "Hết hạn hôm nay",
   dueThisWeek: "Hết hạn trong tuần",

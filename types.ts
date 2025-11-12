@@ -215,6 +215,8 @@ export type Translation = {
 
   // Task Card
   creationTime: string;
+  completionTime: string; // for sorting
+  completionDate: string; // for card display
   assignee: string;
   createdBy: string;
   totalTimeLogged: string;

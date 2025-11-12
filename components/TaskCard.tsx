@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Task, Profile } from '../types';
 import { useSettings } from '../context/SettingsContext';
-import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon } from './Icons';
+import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon, TrophyIcon } from './Icons';
 import PriorityIndicator from './common/PriorityIndicator';
 import Avatar from './common/Avatar';
 
@@ -20,8 +20,7 @@ const formatDuration = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 };
 
 const formatExactTime = (dateString: string, lang: string, timezone: string) => {
@@ -31,11 +30,33 @@ const formatExactTime = (dateString: string, lang: string, timezone: string) => 
         minute: '2-digit',
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric',
+        year: '2-digit',
         timeZone: timezone,
+        hour12: false,
     };
-    return new Intl.DateTimeFormat(lang, options).format(date);
+    // Use 'vi-VN' locale for a predictable format "HH:mm, dd/MM/yy"
+    // then reorder to "dd/mm/yy HH:mm"
+    const formatted = new Intl.DateTimeFormat('vi-VN', options).format(date);
+    const parts = formatted.split(', ');
+    if (parts.length === 2) {
+        return `${parts[1]} ${parts[0]}`;
+    }
+    return formatted; // Fallback
 };
+
+const formatShortDate = (dateString: string) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    // Create date in local time to prevent timezone shift issues for display
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    const options: Intl.DateTimeFormatOptions = {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+    };
+    return new Intl.DateTimeFormat('vi-VN', options).format(date);
+};
+
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator }) => {
     const { t, language, timezone } = useSettings();
@@ -144,6 +165,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             <div className="flex flex-wrap justify-between items-center mt-2 gap-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                     <PriorityIndicator priority={task.priority} />
+                    {task.due_date && (
+                        <div title={t.dueDateLabel} className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-500 dark:text-red-400 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {isOverdue && <span className="animate-gentle-shake">⏰</span>}
+                            <CalendarIcon size={12} />
+                            <span>{formatShortDate(task.due_date)}</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                     {task.task_comments && task.task_comments.length > 0 && (
@@ -158,34 +186,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                             <span>{task.task_attachments.length}</span>
                         </div>
                     )}
-                    {task.due_date && (
-                        <div title={t.dueDateLabel} className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 dark:text-red-400 font-semibold' : ''}`}>
-                            {isOverdue && <span className="animate-gentle-shake">⏰</span>}
-                            <CalendarIcon size={12} />
-                            <span>{new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(new Date(task.due_date))}</span>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-1 text-xs font-mono text-gray-600 dark:text-gray-300" title={t.totalTimeLogged}>
-                        <ClockIcon size={12} className={task.status === 'inprogress' ? 'text-sky-500' : ''}/>
-                        <span>{formatDuration(duration)}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div className="flex justify-between items-center mt-2">
-                 <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {creator && creator.id !== assignee?.id && (
-                        <>
-                            <Avatar user={creator} title={`${t.createdBy}: ${creator.full_name}`} size={20} />
-                            <ArrowRightIcon size={12} className="text-gray-400" />
-                        </>
-                    )}
-                    {assignee && <Avatar user={assignee} title={`${t.assignee}: ${assignee.full_name}`} size={20} />}
-                    <span className="ml-1 tabular-nums">{formatExactTime(task.created_at, language, timezone)}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                     <div className="relative h-5 flex items-center">
+                    <div className="relative h-5 flex items-center">
                         <button 
                             onClick={handleCopyId}
                             title={t.copyTaskId}
@@ -198,6 +199,36 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                                 Copied!
                             </div>
                         )}
+                    </div>
+                </div>
+            </div>
+            
+            <div className="flex justify-between items-center mt-2">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {creator && creator.id !== assignee?.id && (
+                        <>
+                            <Avatar user={creator} title={`${t.createdBy}: ${creator.full_name}`} size={20} />
+                            <ArrowRightIcon size={12} className="text-gray-400" />
+                        </>
+                    )}
+                    {assignee && <Avatar user={assignee} title={`${t.assignee}: ${assignee.full_name}`} size={20} />}
+                </div>
+
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                     {isArchived ? (
+                        <span className="tabular-nums flex items-center gap-1" title={t.completionDate}>
+                            <TrophyIcon size={12} className={isDone ? "text-green-500" : "text-gray-500"} />
+                            {formatExactTime(task.updated_at, language, timezone)}
+                        </span>
+                    ) : (
+                        <span className="tabular-nums flex items-center gap-1" title={t.creationTime}>
+                            <span role="img" aria-label="rocket" className="text-sm">🚀</span>
+                            {formatExactTime(task.created_at, language, timezone)}
+                        </span>
+                    )}
+                    <div className="flex items-center gap-1 font-mono text-gray-600 dark:text-gray-300" title={t.totalTimeLogged}>
+                        <ClockIcon size={12} className={task.status === 'inprogress' ? 'text-sky-500' : ''}/>
+                        <span>{formatDuration(duration)}</span>
                     </div>
                 </div>
             </div>
