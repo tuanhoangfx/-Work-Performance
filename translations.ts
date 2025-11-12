@@ -204,6 +204,19 @@ const en: Translation = {
   log_action_removed_attachments: "Attachments Removed",
   log_action_cleared_cancelled_tasks: "Cleared Cancelled Tasks",
 
+  // Notifications filters
+  notif_searchPlaceholder: "Search by content, user, or task...",
+  notif_filterByActor: "Filter by Actor",
+  notif_allActors: "All Actors",
+  notif_filterByType: "Filter by Type",
+  notif_allTypes: "All Types",
+  notif_type_new_task: "New Task Assigned",
+  notif_type_new_comment: "New Comment",
+  notif_filterByStatus: "Filter by Status",
+  notif_allStatuses: "All Statuses",
+  notif_status_read: "Read",
+  notif_status_unread: "Unread",
+
   // Settings
   defaultDueDateIn: "Default due date in",
   days: "days",
@@ -472,6 +485,19 @@ const vi: Translation = {
   log_action_added_attachments: "Thêm tệp đính kèm",
   log_action_removed_attachments: "Xóa tệp đính kèm",
   log_action_cleared_cancelled_tasks: "Dọn dẹp công việc đã hủy",
+
+  // Notifications filters
+  notif_searchPlaceholder: "Tìm theo nội dung, người dùng, hoặc công việc...",
+  notif_filterByActor: "Lọc theo người gửi",
+  notif_allActors: "Tất cả người gửi",
+  notif_filterByType: "Lọc theo loại",
+  notif_allTypes: "Tất cả các loại",
+  notif_type_new_task: "Giao việc mới",
+  notif_type_new_comment: "Bình luận mới",
+  notif_filterByStatus: "Lọc theo trạng thái",
+  notif_allStatuses: "Tất cả trạng thái",
+  notif_status_read: "Đã đọc",
+  notif_status_unread: "Chưa đọc",
 
   // Settings
   defaultDueDateIn: "Ngày hết hạn mặc định sau",

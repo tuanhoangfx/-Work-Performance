@@ -1,8 +1,8 @@
 export interface Profile {
   id: string; // should match user.id
-  updated_at: string;
-  full_name: string;
-  avatar_url: string;
+  updated_at: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
   role: 'admin' | 'employee';
 }
 
@@ -306,6 +306,19 @@ export type Translation = {
   log_action_added_attachments: string;
   log_action_removed_attachments: string;
   log_action_cleared_cancelled_tasks: string;
+
+  // Notifications filters
+  notif_searchPlaceholder: string;
+  notif_filterByActor: string;
+  notif_allActors: string;
+  notif_filterByType: string;
+  notif_allTypes: string;
+  notif_type_new_task: string;
+  notif_type_new_comment: string;
+  notif_filterByStatus: string;
+  notif_allStatuses: string;
+  notif_status_read: string;
+  notif_status_unread: string;
 
   // Settings
   defaultDueDateIn: string;

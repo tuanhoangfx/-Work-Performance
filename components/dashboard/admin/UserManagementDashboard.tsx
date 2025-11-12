@@ -30,7 +30,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
         }
         const lowerCaseSearch = searchTerm.toLowerCase();
         return allUsers.filter(user =>
-            user.full_name?.toLowerCase().includes(lowerCaseSearch)
+            (user.full_name || '').toLowerCase().includes(lowerCaseSearch)
         );
     }, [allUsers, searchTerm]);
 
@@ -141,7 +141,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
                                     <RoleBadge role={user.role} />
                                 </td>
                                 <td className="px-6 py-4 tabular-nums">
-                                    {formatAbsoluteDateTime(user.updated_at, language, timezone)}
+                                    {user.updated_at ? formatAbsoluteDateTime(user.updated_at, language, timezone) : 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 text-right space-x-2">
                                     <button onClick={() => handleEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { Profile } from '../../../types';
@@ -30,7 +29,7 @@ const MultiSelectEmployeeDropdown: React.FC<MultiSelectEmployeeDropdownProps> = 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return allUsers;
     return allUsers.filter(user =>
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [allUsers, searchTerm]);
 
