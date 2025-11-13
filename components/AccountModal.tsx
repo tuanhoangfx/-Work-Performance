@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { XIcon, UserIcon } from '@/components/Icons';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '@/context/SettingsContext';
+import { useToasts } from '@/context/ToastContext';
 import { ProjectMember } from '@/types';
 
 interface AccountModalProps {
@@ -13,6 +14,7 @@ interface AccountModalProps {
 
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session }) => {
     const { t } = useSettings();
+    const { addToast } = useToasts();
     const [activeTab, setActiveTab] = useState('profile');
     
     const [profileLoading, setProfileLoading] = useState(true);
@@ -103,9 +105,10 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             
             await supabase.auth.updateUser({ data: { full_name: fullName, avatar_url: newAvatarUrl } });
             
-            console.log(t.profileUpdated);
+            addToast(t.profileUpdated, 'success');
             setAvatarFile(null);
         } catch (error: any) {
+            addToast(`Error updating profile: ${error.message}`, 'error');
             console.error("Error updating profile:", error.message);
         } finally {
             setProfileLoading(false);
@@ -127,7 +130,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
         if (error) {
             setPasswordError(error.message);
         } else {
-            console.log(t.passwordUpdated);
+            addToast(t.passwordUpdated, 'success');
             setPassword('');
             setConfirmPassword('');
         }

@@ -18,6 +18,7 @@ import { useModalManager } from '@/hooks/useModalManager';
 import { useProfileAndUsers } from '@/hooks/useProfileAndUsers';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAppActions } from '@/hooks/useAppActions';
+import useIdleTimer from '@/hooks/useIdleTimer';
 
 // Lazy load components
 const Header = lazy(() => import('@/components/Header'));
@@ -224,6 +225,16 @@ const AppContent: React.FC = () => {
       t
   });
 
+  const handleIdle = useCallback(() => {
+    if (session && navigator.onLine) {
+        console.log('User is idle. Refreshing data in the background...');
+        notifyDataChange({ type: 'batch_update', payload: { reason: 'idle_refresh' } });
+        addToast(t.dataRefreshed, 'info');
+    }
+  }, [session, notifyDataChange, addToast, t.dataRefreshed]);
+
+  useIdleTimer(handleIdle, 5 * 60 * 1000);
+
   const canAddTask = !!(session && profile);
 
   useEffect(() => {
@@ -336,14 +347,6 @@ const AppContent: React.FC = () => {
           (payload) => {
             if (table === 'profiles' && payload.eventType !== 'DELETE' && (payload.new as Profile).id === session?.user.id) {
                  notifyDataChange({ type: 'profile_change', payload: payload.new });
-            } else if (table === 'profiles') {
-                if (payload.eventType === 'INSERT') {
-                    notifyDataChange({ type: 'add', payload: payload.new });
-                } else if (payload.eventType === 'UPDATE') {
-                    notifyDataChange({ type: 'update', payload: payload.new });
-                } else if (payload.eventType === 'DELETE') {
-                    notifyDataChange({ type: 'delete', payload: { id: (payload.old as any).id } });
-                }
             } else {
                  notifyDataChange({ type: 'batch_update', payload: { table } });
             }

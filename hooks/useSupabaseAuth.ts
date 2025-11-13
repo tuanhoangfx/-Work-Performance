@@ -21,7 +21,7 @@ export const useSupabaseAuth = () => {
             setSession(session);
         });
 
-        return () => subscription.unsubscribe();
+        return () => subscription?.unsubscribe();
     }, []);
 
     const handleSignOut = async () => {
