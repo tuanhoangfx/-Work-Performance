@@ -8,7 +8,7 @@ import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiS
 import TimeRangeSelect from './performance-summary/TimeRangeSelect';
 import MonthPicker from './performance-summary/MonthPicker';
 import type { TimeRange } from './PerformanceSummary';
-import { PROJECT_COLORS } from '../../constants';
+import { PROJECT_COLORS } from '../constants';
 
 export interface Filters {
   searchTerm: string;
