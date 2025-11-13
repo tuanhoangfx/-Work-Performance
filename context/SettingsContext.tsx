@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { translations } from '../translations';
-import { Translation } from '../types';
+import { Translation, Task } from '../types';
 
-export type ColorScheme = 'sky' | 'ocean' | 'sunset';
+export type ColorScheme = 'sky' | 'amethyst' | 'sunset' | 'emerald' | 'crimson';
 
 // Define the shape of the context data
 export interface SettingsContextType {
@@ -16,6 +16,8 @@ export interface SettingsContextType {
   t: Translation;
   defaultDueDateOffset: number;
   setDefaultDueDateOffset: (offset: number) => void;
+  defaultPriority: Task['priority'];
+  setDefaultPriority: (priority: Task['priority']) => void;
   timezone: string;
   setTimezone: (tz: string) => void;
 }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { ViewGridIcon, CalendarDaysIcon } from '../Icons';
@@ -12,4 +13,4 @@ const DashboardViewToggle: React.FC<{ view: 'board' | 'calendar'; setView: (view
     );
 };
 
-export default DashboardViewToggle;
+export default React.memo(DashboardViewToggle);

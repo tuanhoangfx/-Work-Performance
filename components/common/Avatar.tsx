@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Profile } from '../../types';
 
@@ -26,4 +27,4 @@ const Avatar: React.FC<AvatarProps> = ({ user, title, size = 20, className }) =>
         </div>
     );
 };
-export default Avatar;
+export default React.memo(Avatar);

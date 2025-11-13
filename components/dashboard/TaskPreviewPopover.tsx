@@ -44,7 +44,7 @@ const TaskPreviewPopover: React.FC<TaskPreviewPopoverProps> = ({ isOpen, onClose
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-start justify-center pt-10" aria-hidden="true" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[998] flex items-start justify-center pt-10" aria-hidden="true" onClick={onClose}>
             <div 
                 ref={popoverRef}
                 onClick={e => e.stopPropagation()}

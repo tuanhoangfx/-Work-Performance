@@ -26,7 +26,10 @@ export const useSupabaseAuth = () => {
 
     const handleSignOut = async () => {
         if (!isSupabaseConfigured) return;
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Sign out error:', error.message);
+        }
     };
 
     return { session, loading, handleSignOut };

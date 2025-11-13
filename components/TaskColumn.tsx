@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
@@ -97,4 +98,4 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
     );
 }
 
-export default TaskColumn;
+export default React.memo(TaskColumn);

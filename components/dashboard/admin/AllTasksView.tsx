@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
-import type { Profile, Task } from '../../../types';
+import type { Profile, Task, Project } from '../../../types';
 import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon, UsersIcon } from '../../Icons';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
 import FilterBar, { Filters } from '../../FilterBar';
@@ -16,6 +17,7 @@ import MultiSelectDropdown from './MultiSelectEmployeeDropdown';
 interface AllTasksViewProps {
     lastDataChange: DataChange | null;
     allUsers: Profile[];
+    allProjects: Project[];
     onEditTask: (task: Task | Partial<Task> | null) => void;
     onDeleteTask: (task: Task) => void;
     onUpdateStatus: (task: Task, status: Task['status']) => Promise<boolean>;
@@ -23,13 +25,12 @@ interface AllTasksViewProps {
     setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
-    // FIX: Destructure timezone from useSettings to pass it to the useTaskFilter hook.
+const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, allProjects, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
     const { t, language, timezone } = useSettings();
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [], projectIds: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
@@ -43,7 +44,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
     const allTasksQuery = useCallback(() => {
-        return supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
+        return supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
     }, []);
 
     const { data: allTasks, loading } = useCachedSupabaseQuery<Task[]>({
@@ -194,6 +195,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
                     filters={filters} 
                     onFilterChange={setFilters} 
                     allUsers={allUsers}
+                    projects={allProjects}
                     timeRange={timeRange}
                     setTimeRange={setTimeRange}
                     customMonth={customMonth}
@@ -246,4 +248,4 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, o
     );
 }
 
-export default AllTasksView;
+export default React.memo(AllTasksView);

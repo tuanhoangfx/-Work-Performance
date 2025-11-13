@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ChevronUpIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
@@ -42,4 +43,4 @@ const ScrollToTopButton: React.FC = () => {
   );
 };
 
-export default ScrollToTopButton;
+export default React.memo(ScrollToTopButton);

@@ -10,11 +10,11 @@ import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiS
 interface NotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onViewTask: (taskId: number) => void;
+  onNotificationClick: (notification: Notification) => void;
   setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, onViewTask, setUnreadCount }) => {
+const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose, onNotificationClick, setUnreadCount }) => {
     const { t, language, timezone } = useSettings();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,15 +25,18 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
 
     const formatNotificationMessage = (notification: Notification) => {
         const actorName = notification.profiles?.full_name || 'Someone';
-        const taskTitle = notification.data?.task_title || 'a task';
-
+        
         switch (notification.type) {
             case 'new_task_assigned':
-                return t.notifications_new_task(actorName, taskTitle);
+                 return t.notifications_new_task(actorName, notification.data.task_title || 'a task');
             case 'new_comment':
-                return t.notifications_new_comment(actorName, taskTitle);
+                return t.notifications_new_comment(actorName, notification.data.task_title || 'a task');
+            case 'new_project_created':
+                return t.notifications_new_project(actorName, notification.data.project_name || 'a new project');
+            case 'new_user_registered':
+                return t.notifications_new_user(notification.data.new_user_name || 'a new user');
             default:
-                return `New activity on task: ${taskTitle}`;
+                return `New activity on task: ${notification.data.task_title || 'a task'}`;
         }
     };
     
@@ -71,18 +74,6 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         }
     }, [isOpen]);
 
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
-        };
-        if (isOpen) {
-            window.addEventListener('keydown', handleKeyDown);
-        }
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
-
     const handleMarkAllAsRead = async () => {
         const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
         if (unreadIds.length === 0) return;
@@ -102,7 +93,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
     };
 
     const handleNotificationClick = async (notification: Notification) => {
-        onViewTask(notification.data.task_id);
+        onNotificationClick(notification);
 
         if (!notification.is_read) {
             // Optimistic UI update for instant feedback
@@ -146,6 +137,8 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
         const typeLabels: { [key: string]: string } = {
             new_task_assigned: t.notif_type_new_task,
             new_comment: t.notif_type_new_comment,
+            new_project_created: t.notif_type_new_project,
+            new_user_registered: t.notif_type_new_user,
         };
         // FIX: Cast to string[] to resolve TypeScript error where `type` is inferred as `unknown`.
         return (Array.from(new Set(notifications.map(n => n.type))) as string[])
@@ -181,14 +174,14 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
 
     return (
         <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-start md:items-center p-4 pt-16 md:pt-4 animate-fadeIn"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex justify-center overflow-y-auto p-4 animate-fadeIn"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
             aria-labelledby="notifications-title"
         >
             <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp my-auto"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">

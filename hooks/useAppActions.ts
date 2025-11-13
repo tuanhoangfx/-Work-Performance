@@ -62,9 +62,10 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
         };
 
         try {
+            const selectQuery = '*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))';
             const { data: savedTask, error: saveError } = isNewTask
-                ? await supabase.from('tasks').insert(dataToSave).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single()
-                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
+                ? await supabase.from('tasks').insert(dataToSave).select(selectQuery).single()
+                : await supabase.from('tasks').update(dataToSave).eq('id', editingTask!.id).select(selectQuery).single();
 
             if (saveError) throw saveError;
             if (!savedTask) throw new Error("Task could not be saved.");
@@ -127,7 +128,7 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
                 }
             }
             
-            const { data: finalTask, error: finalError } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('id', taskId).single();
+            const { data: finalTask, error: finalError } = await supabase.from('tasks').select(selectQuery).eq('id', taskId).single();
             if (finalError) throw finalError;
             
             notifyDataChange({ type: isNewTask ? 'add' : 'update', payload: finalTask });
@@ -214,7 +215,7 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
     }, [setActionModal, executeClearCancelledTasks, t]);
     
     const handleUpdateStatus = useCallback(async (task: Task, status: Task['status']): Promise<boolean> => {
-        const { data, error } = await supabase.from('tasks').update({ status }).eq('id', task.id).select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
+        const { data, error } = await supabase.from('tasks').update({ status }).eq('id', task.id).select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
         if (error) {
             console.error("Error updating task status:", error.message);
             addToast('Failed to update task status.', 'error');

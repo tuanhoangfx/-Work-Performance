@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
@@ -68,4 +69,4 @@ const PerformanceSummary: React.FC<PerformanceSummaryProps> = ({
   );
 };
 
-export default PerformanceSummary;
+export default React.memo(PerformanceSummary);

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { XIcon, UserIcon } from './Icons';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '../context/SettingsContext';
+import { ProjectMember } from '../types';
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -62,18 +63,6 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
         }
     }, [isOpen, session, getProfile]);
     
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
-        };
-        if (isOpen) {
-            window.addEventListener('keydown', handleKeyDown);
-        }
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
-
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setAvatarFile(e.target.files[0]);
@@ -149,14 +138,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
 
     return (
         <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-start md:items-center p-4 pt-16 md:pt-4 animate-fadeIn"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center overflow-y-auto p-4 animate-fadeIn"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
             aria-labelledby="account-modal-title"
         >
             <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fadeInUp max-h-[90vh] flex flex-col"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fadeInUp max-h-[90vh] flex flex-col my-auto"
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-6 pb-0 relative flex-shrink-0">

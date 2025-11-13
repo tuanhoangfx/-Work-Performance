@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '../../context/SettingsContext';
@@ -75,4 +76,4 @@ const UserMenu: React.FC<UserMenuProps> =
     );
 };
 
-export default UserMenu;
+export default React.memo(UserMenu);

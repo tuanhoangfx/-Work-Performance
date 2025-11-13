@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import SessionInfo from './SessionInfo';
 import ActivityTicker from './ActivityTicker';
@@ -23,7 +25,7 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, adminView, onEditTask, onDeleteTask, onUpdateStatus, onOpenActivityLog, onOpenNotifications, unreadCount, taskCounts }) => {
     const { t } = useSettings();
-    const canAddTask = session && !(profile?.role === 'admin' && adminView !== 'myTasks');
+    const canAddTask = !!(session && profile);
 
     return (
         <div className="relative z-10 bg-slate-100 dark:bg-black/20 text-gray-600 dark:text-gray-400 animate-fadeInDown border-b border-black/5 dark:border-white/5">
@@ -89,4 +91,4 @@ const TopBar: React.FC<TopBarProps> = ({ session, onAddNewTask, profile, adminVi
     );
 };
 
-export default TopBar;
+export default React.memo(TopBar);

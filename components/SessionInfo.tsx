@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GlobeIcon, ClockIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
@@ -91,4 +92,4 @@ const SessionInfo: React.FC = () => {
   );
 };
 
-export default SessionInfo;
+export default React.memo(SessionInfo);

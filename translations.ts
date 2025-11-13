@@ -16,6 +16,8 @@ const en: Translation = {
   notifications: "Notifications",
   notifications_new_task: (assigner, task) => `<strong>${assigner}</strong> assigned you a new task: <strong>${task}</strong>.`,
   notifications_new_comment: (commenter, task) => `<strong>${commenter}</strong> commented on your task: <strong>${task}</strong>.`,
+  notifications_new_project: (creator, project) => `<strong>${creator}</strong> created a new project: <strong>${project}</strong>.`,
+  notifications_new_user: (newUser) => `A new user has registered: <strong>${newUser}</strong>.`,
   notifications_empty: "You have no new notifications.",
   mark_all_as_read: "Mark all as read",
   view_task: "View Task",
@@ -122,6 +124,7 @@ const en: Translation = {
   timerRunningOnAnotherTask: "Timer is running on another task",
   cancelTask: "Cancel Task",
   copyTaskId: "Copy Task ID",
+  project: "Project",
 
   // Task Modal
   taskTitleLabel: "Task Title",
@@ -156,6 +159,8 @@ const en: Translation = {
   customMonth: "By Month",
   customRange: "Date Range",
   userManagement: "User Management",
+  projectManagement: "Project Management",
+  management: "Management",
   searchUsers: "Search users by name...",
   lastUpdated: "Last Updated",
   actions: "Actions",
@@ -169,10 +174,11 @@ const en: Translation = {
   
   // Admin Modals
   employee: "Employee",
+  manager: "Manager",
   selectEmployee: "Select an Employee",
   editEmployeeProfile: "Edit Employee Profile",
   role: "Position",
-  admin: "Manager",
+  admin: "Admin",
   // FIX: Add missing translations for modals.
   addNewTimeEntry: "Add New Time Entry",
   date: "Date",
@@ -214,6 +220,8 @@ const en: Translation = {
   notif_allTypes: "All Types",
   notif_type_new_task: "New Task Assigned",
   notif_type_new_comment: "New Comment",
+  notif_type_new_project: "New Project Created",
+  notif_type_new_user: "New User Registered",
   notif_filterByStatus: "Filter by Status",
   notif_allStatuses: "All Statuses",
   notif_status_read: "Read",
@@ -225,6 +233,8 @@ const en: Translation = {
   clearCancelledTasksTitle: "Clear all cancelled tasks",
   clearCancelledTasksConfirmation: (count) => `Are you sure you want to permanently delete ${count} cancelled tasks? This cannot be undone.`,
   timezone: "Timezone",
+  defaultProject: "Default Project",
+  personalProject: "Personal",
 
   // User Guide
   userGuide_searchPlaceholder: "Search guide...",
@@ -272,6 +282,8 @@ const en: Translation = {
   allDates: "All Due Dates",
   dueToday: "Due Today",
   dueThisWeek: "Due This Week",
+  filterByProject: "Project",
+  allProjects: "All Projects",
   
   // Calendar Sorting
   sortBy: "Sort by",
@@ -282,6 +294,18 @@ const en: Translation = {
 
   // General App
   dataRefreshed: "Data refreshed automatically.",
+
+  // Project Management
+  createdAt: "Created At",
+  members: "Members",
+  manageMembers: "Manage Members",
+  addMember: "Add Member",
+  removeMember: "Remove Member",
+  joinedOn: "Joined on",
+  tasksInProject: "Tasks in project",
+  confirmRemoveMember: (name: string, project: string) => `Are you sure you want to remove ${name} from ${project}?`,
+  selectUserToAdd: "Select a user to add",
+  noMembers: "No members in this project yet.",
 };
 
 const vi: Translation = {
@@ -300,6 +324,8 @@ const vi: Translation = {
   notifications: "Thông báo",
   notifications_new_task: (assigner, task) => `<strong>${assigner}</strong> đã giao cho bạn công việc mới: <strong>${task}</strong>.`,
   notifications_new_comment: (commenter, task) => `<strong>${commenter}</strong> đã bình luận về công việc của bạn: <strong>${task}</strong>.`,
+  notifications_new_project: (creator, project) => `<strong>${creator}</strong> đã tạo dự án mới: <strong>${project}</strong>.`,
+  notifications_new_user: (newUser) => `Một người dùng mới đã đăng ký: <strong>${newUser}</strong>.`,
   notifications_empty: "Bạn không có thông báo nào.",
   mark_all_as_read: "Đánh dấu tất cả là đã đọc",
   view_task: "Xem công việc",
@@ -406,6 +432,7 @@ const vi: Translation = {
   timerRunningOnAnotherTask: "Đang tính giờ cho công việc khác",
   cancelTask: "Hủy công việc",
   copyTaskId: "Sao chép ID công việc",
+  project: "Dự án",
 
   // Task Modal
   taskTitleLabel: "Tiêu đề công việc",
@@ -440,6 +467,8 @@ const vi: Translation = {
   customMonth: "Theo Tháng",
   customRange: "Khoảng Ngày",
   userManagement: "Quản lý Người dùng",
+  projectManagement: "Quản lý Dự án",
+  management: "Quản lý",
   searchUsers: "Tìm người dùng theo tên...",
   lastUpdated: "Cập nhật lần cuối",
   actions: "Hành động",
@@ -453,10 +482,11 @@ const vi: Translation = {
 
   // Admin Modals
   employee: "Nhân viên",
+  manager: "Quản lý",
   selectEmployee: "Chọn một Nhân viên",
   editEmployeeProfile: "Chỉnh sửa Hồ sơ Nhân viên",
   role: "Chức vụ",
-  admin: "Quản lý",
+  admin: "Admin",
   // FIX: Add missing translations for modals.
   addNewTimeEntry: "Thêm Chấm Công Mới",
   date: "Ngày",
@@ -498,6 +528,8 @@ const vi: Translation = {
   notif_allTypes: "Tất cả các loại",
   notif_type_new_task: "Giao việc mới",
   notif_type_new_comment: "Bình luận mới",
+  notif_type_new_project: "Tạo dự án mới",
+  notif_type_new_user: "Người dùng mới",
   notif_filterByStatus: "Lọc theo trạng thái",
   notif_allStatuses: "Tất cả trạng thái",
   notif_status_read: "Đã đọc",
@@ -509,6 +541,8 @@ const vi: Translation = {
   clearCancelledTasksTitle: "Dọn dẹp các công việc đã hủy",
   clearCancelledTasksConfirmation: (count) => `Bạn có chắc muốn xóa vĩnh viễn ${count} công việc đã hủy không? Hành động này không thể hoàn tác.`,
   timezone: "Múi giờ",
+  defaultProject: "Dự án mặc định",
+  personalProject: "Cá nhân",
 
   // User Guide
   userGuide_searchPlaceholder: "Tìm kiếm hướng dẫn...",
@@ -557,6 +591,8 @@ const vi: Translation = {
   // FIX: Removed duplicate 'overdue' key that caused a compilation error. The 'overdue' key is already defined in the 'Task Status' section.
   dueToday: "Hết hạn hôm nay",
   dueThisWeek: "Hết hạn trong tuần",
+  filterByProject: "Dự án",
+  allProjects: "Tất cả dự án",
   
   // Calendar Sorting
   sortBy: "Sắp xếp theo",
@@ -567,12 +603,25 @@ const vi: Translation = {
   
   // General App
   dataRefreshed: "Dữ liệu đã được làm mới tự động.",
+
+  // Project Management
+  createdAt: "Ngày tạo",
+  members: "Thành viên",
+  manageMembers: "Quản lý thành viên",
+  addMember: "Thêm thành viên",
+  removeMember: "Xóa thành viên",
+  joinedOn: "Tham gia ngày",
+  tasksInProject: "Việc trong dự án",
+  confirmRemoveMember: (name, project) => `Bạn có chắc muốn xóa ${name} khỏi dự án ${project} không?`,
+  selectUserToAdd: "Chọn người dùng để thêm",
+  noMembers: "Chưa có thành viên trong dự án này.",
 };
 
 const th: Translation = {
   // This is a placeholder, you can add Thai translations here.
   ...en,
   language: "ภาษา",
+  management: "Management",
   employeeDashboard: "งานของฉัน",
   adminDashboard: "แดชบอร์ดผู้จัดการ",
   myTasks: "งานของฉัน",

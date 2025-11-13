@@ -15,7 +15,6 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
             if (trimmedSearch) {
                 let searchId: number | null = null;
 
-                // Handle search by ID, including formats like '#0002' or '2'
                 if (trimmedSearch.startsWith('#')) {
                     const numericPart = trimmedSearch.substring(1);
                     if (/^\d+$/.test(numericPart)) {
@@ -28,7 +27,6 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
                 if (searchId !== null) {
                     searchTermMatch = task.id === searchId;
                 } else {
-                    // Fallback to text search if not an ID format
                     const lowerCaseSearch = trimmedSearch.toLowerCase();
                     searchTermMatch = task.title.toLowerCase().includes(lowerCaseSearch) ||
                         (task.description && task.description.toLowerCase().includes(lowerCaseSearch)) ||
@@ -38,6 +36,11 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
 
             const creatorMatch = filters.creatorIds.length === 0 || (task.created_by && filters.creatorIds.includes(task.created_by));
             const priorityMatch = filters.priorities.length === 0 || filters.priorities.includes(task.priority);
+            
+            const projectMatch = filters.projectIds.length === 0 ||
+              (filters.projectIds.includes(0) && task.project_id === null) ||
+              (task.project_id !== null && filters.projectIds.includes(task.project_id));
+
 
             let dueDateMatch = true;
             if (filters.dueDates.length > 0) {
@@ -60,7 +63,7 @@ export const useTaskFilter = (tasks: Task[], filters: Filters, timezone: string)
             }
 
 
-            return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch;
+            return searchTermMatch && creatorMatch && priorityMatch && dueDateMatch && projectMatch;
         });
     }, [tasks, filters, timezone]);
 };

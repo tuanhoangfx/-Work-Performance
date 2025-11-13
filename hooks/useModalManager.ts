@@ -1,5 +1,7 @@
+
+
 import { useState, useCallback } from 'react';
-import type { Task } from '../types';
+import type { Task, Profile, Project } from '../types';
 
 export interface ActionModalState {
     isOpen: boolean;
@@ -17,8 +19,15 @@ export const useModalManager = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [isTaskDefaultsModalOpen, setIsTaskDefaultsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | Partial<Task> | null>(null);
     
+    const [isEditEmployeeModalOpen, setIsEditEmployeeModalOpen] = useState(false);
+    const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
+
+    const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
+
     const [actionModal, setActionModal] = useState<ActionModalState>({
         isOpen: false,
         title: '',
@@ -35,6 +44,27 @@ export const useModalManager = () => {
         setEditingTask(null);
     }, []);
 
+    const handleOpenEditEmployeeModal = useCallback((employee: Profile) => {
+        setEditingEmployee(employee);
+        setIsEditEmployeeModalOpen(true);
+    }, []);
+
+    const handleCloseEditEmployeeModal = useCallback(() => {
+        setIsEditEmployeeModalOpen(false);
+        setEditingEmployee(null);
+    }, []);
+    
+    const handleOpenProjectModal = useCallback((project: Project | null) => {
+        setEditingProject(project);
+        setIsProjectModalOpen(true);
+    }, []);
+
+    const handleCloseProjectModal = useCallback(() => {
+        setIsProjectModalOpen(false);
+        setEditingProject(null);
+    }, []);
+
+
     return {
         modals: {
             auth: { isOpen: isAuthModalOpen, open: () => setIsAuthModalOpen(true), close: () => setIsAuthModalOpen(false) },
@@ -42,11 +72,24 @@ export const useModalManager = () => {
             userGuide: { isOpen: isUserGuideOpen, open: () => setIsUserGuideOpen(true), close: () => setIsUserGuideOpen(false) },
             activityLog: { isOpen: isActivityLogOpen, open: () => setIsActivityLogOpen(true), close: () => setIsActivityLogOpen(false) },
             notifications: { isOpen: isNotificationsOpen, open: () => setIsNotificationsOpen(true), close: () => setIsNotificationsOpen(false) },
+            taskDefaults: { isOpen: isTaskDefaultsModalOpen, open: () => setIsTaskDefaultsModalOpen(true), close: () => setIsTaskDefaultsModalOpen(false) },
             task: { 
                 isOpen: isTaskModalOpen, 
                 open: handleOpenTaskModal, 
                 close: handleCloseTaskModal, 
                 editingTask 
+            },
+            editEmployee: {
+                isOpen: isEditEmployeeModalOpen,
+                open: handleOpenEditEmployeeModal,
+                close: handleCloseEditEmployeeModal,
+                editingEmployee,
+            },
+            editProject: {
+                isOpen: isProjectModalOpen,
+                open: handleOpenProjectModal,
+                close: handleCloseProjectModal,
+                editingProject,
             },
             action: {
                 ...actionModal,

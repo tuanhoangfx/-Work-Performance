@@ -1,9 +1,12 @@
 export interface Profile {
   id: string; // should match user.id
+  created_at?: string;
   updated_at: string | null;
+  last_sign_in_at?: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'manager' | 'employee';
+  default_project_id?: number | null;
 }
 
 export interface TaskAttachment {
@@ -32,6 +35,24 @@ export interface TaskComment {
   profiles: Profile;
 }
 
+export interface Project {
+  id: number;
+  created_at: string;
+  name: string;
+  created_by: string;
+  project_members?: { count: number }[];
+  color?: string | null;
+}
+
+export interface ProjectMember {
+    project_id: number;
+    user_id: string;
+    created_at: string;
+    projects: Project | null;
+    profiles?: Profile;
+}
+
+
 export interface Task {
   id: number;
   user_id: string;
@@ -43,6 +64,8 @@ export interface Task {
   status: 'todo' | 'inprogress' | 'done' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   due_date: string | null;
+  project_id?: number | null;
+  projects?: Project; // For showing project info
   task_attachments?: TaskAttachment[];
   assignee?: Profile; // For showing assignee info
   creator?: Profile; // For showing creator info
@@ -71,12 +94,17 @@ export interface Notification {
   created_at: string;
   user_id: string;
   actor_id: string;
-  type: 'new_task_assigned' | 'new_comment';
+  type: 'new_task_assigned' | 'new_comment' | 'new_project_created' | 'new_user_registered';
   data: {
-    task_id: number;
-    task_title: string;
+    task_id?: number;
+    task_title?: string;
     assigner_name?: string;
     commenter_name?: string;
+    project_id?: number;
+    project_name?: string;
+    creator_name?: string;
+    new_user_id?: string;
+    new_user_name?: string;
   };
   is_read: boolean;
   profiles: Profile; // For actor info
@@ -119,6 +147,8 @@ export type Translation = {
   notifications: string;
   notifications_new_task: (assigner: string, task: string) => string;
   notifications_new_comment: (commenter: string, task: string) => string;
+  notifications_new_project: (creator: string, project: string) => string;
+  notifications_new_user: (newUser: string) => string;
   notifications_empty: string;
   mark_all_as_read: string;
   view_task: string;
@@ -225,6 +255,7 @@ export type Translation = {
   timerRunningOnAnotherTask: string;
   cancelTask: string;
   copyTaskId: string;
+  project: string;
 
   // Task Modal
   taskTitleLabel: string;
@@ -259,6 +290,8 @@ export type Translation = {
   customMonth: string;
   customRange: string;
   userManagement: string;
+  projectManagement: string;
+  management: string;
   searchUsers: string;
   lastUpdated: string;
   actions: string;
@@ -272,6 +305,7 @@ export type Translation = {
   
   // Admin Modals
   employee: string;
+  manager: string;
   selectEmployee: string;
   editEmployeeProfile: string;
   role: string;
@@ -317,6 +351,8 @@ export type Translation = {
   notif_allTypes: string;
   notif_type_new_task: string;
   notif_type_new_comment: string;
+  notif_type_new_project: string;
+  notif_type_new_user: string;
   notif_filterByStatus: string;
   notif_allStatuses: string;
   notif_status_read: string;
@@ -328,6 +364,8 @@ export type Translation = {
   clearCancelledTasksTitle: string;
   clearCancelledTasksConfirmation: (count: number) => string;
   timezone: string;
+  defaultProject: string;
+  personalProject: string;
 
   // User Guide
   userGuide_searchPlaceholder: string;
@@ -375,6 +413,8 @@ export type Translation = {
   allDates: string;
   dueToday: string;
   dueThisWeek: string;
+  filterByProject: string;
+  allProjects: string;
   
   // Calendar Sorting
   sortBy: string;
@@ -385,4 +425,16 @@ export type Translation = {
 
   // General App
   dataRefreshed: string;
+
+  // Project Management
+  createdAt: string;
+  members: string;
+  manageMembers: string;
+  addMember: string;
+  removeMember: string;
+  joinedOn: string;
+  tasksInProject: string;
+  confirmRemoveMember: (name: string, project: string) => string;
+  selectUserToAdd: string;
+  noMembers: string;
 };

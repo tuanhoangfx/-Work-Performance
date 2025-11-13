@@ -1,75 +1,109 @@
-import React, { useState, useMemo } from 'react';
-import { supabase } from '../../../lib/supabase';
+
+
+import React, { useMemo, useState } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
-import { useModalManager } from '../../../hooks/useModalManager';
 import { useToasts } from '../../../context/ToastContext';
-import type { Profile } from '../../../types';
-import { EditIcon, TrashIcon, SearchIcon, UsersIcon } from '../../Icons';
-import EditEmployeeModal from '../../EditEmployeeModal';
-import ActionModal from '../../ActionModal';
+import { Profile, Project, ProjectMember } from '../../../types';
+import { EditIcon, TrashIcon, SearchIcon, ArrowUpIcon, ArrowDownIcon } from '../../Icons';
+import { useModalManager } from '../../../hooks/useModalManager';
 import Avatar from '../../common/Avatar';
+import { supabase } from '../../../lib/supabase';
 import { formatAbsoluteDateTime } from '../../../lib/taskUtils';
 
 interface UserManagementDashboardProps {
     allUsers: Profile[];
     onUsersChange: () => void;
+    currentUserProfile: Profile | null;
+    onEditUser: (user: Profile) => void;
+    projectMemberships: ProjectMember[];
 }
 
-const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUsers, onUsersChange }) => {
+type SortKey = keyof Profile | 'projects';
+
+const SortableHeader: React.FC<{
+    sortKey: SortKey;
+    currentSort: { key: SortKey; direction: 'asc' | 'desc' };
+    setSort: (sort: { key: SortKey; direction: 'asc' | 'desc' }) => void;
+    className?: string;
+    children: React.ReactNode;
+}> = ({ children, sortKey, currentSort, setSort, className }) => {
+    const isSorting = currentSort.key === sortKey;
+    const direction = isSorting ? currentSort.direction : 'none';
+    const nextDirection = direction === 'asc' ? 'desc' : 'asc';
+
+    const handleClick = () => {
+        setSort({ key: sortKey, direction: isSorting ? nextDirection : 'asc' });
+    };
+
+    return (
+        <th scope="col" className={`px-6 py-3 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-600/50 ${className}`} onClick={handleClick}>
+            <div className="flex items-center justify-center gap-1">
+                {children}
+                <span className="opacity-50">
+                    {isSorting ? (direction === 'asc' ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />) : <ArrowUpIcon size={12} className="opacity-30" />}
+                </span>
+            </div>
+        </th>
+    );
+};
+
+
+const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUsers, onUsersChange, currentUserProfile, onEditUser, projectMemberships }) => {
     const { t, language, timezone } = useSettings();
-    const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToasts();
     const { modals } = useModalManager();
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'full_name', direction: 'asc' });
 
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [userToEdit, setUserToEdit] = useState<Profile | null>(null);
-
-    const filteredUsers = useMemo(() => {
-        if (!searchTerm.trim()) {
-            return allUsers;
-        }
-        const lowerCaseSearch = searchTerm.toLowerCase();
-        return allUsers.filter(user =>
-            (user.full_name || '').toLowerCase().includes(lowerCaseSearch)
-        );
-    }, [allUsers, searchTerm]);
-
-    const handleEditUser = (user: Profile) => {
-        setUserToEdit(user);
-        setIsEditModalOpen(true);
-    };
+    const userProjectsMap = useMemo(() => {
+        const map = new Map<string, Project[]>();
+        projectMemberships.forEach(membership => {
+            if (!map.has(membership.user_id)) {
+                map.set(membership.user_id, []);
+            }
+            if (membership.projects) {
+                map.get(membership.user_id)!.push(membership.projects);
+            }
+        });
+        return map;
+    }, [projectMemberships]);
     
-    const handleSaveProfile = async (updatedProfile: Profile) => {
-        const { error } = await supabase.from('profiles').update({ 
-            full_name: updatedProfile.full_name, 
-            avatar_url: updatedProfile.avatar_url, 
-            role: updatedProfile.role 
-        }).eq('id', updatedProfile.id);
+    const sortedAndFilteredUsers = useMemo(() => {
+        const filtered = userSearchTerm.trim()
+            ? allUsers.filter(user => (user.full_name || '').toLowerCase().includes(userSearchTerm.toLowerCase()))
+            : allUsers;
         
-        if (error) {
-            console.error("Error updating user profile:", error);
-            addToast(`Error: ${error.message}`, 'error');
-        } else {
-            addToast("Profile updated successfully", 'success');
-            setIsEditModalOpen(false);
-            setUserToEdit(null);
-            onUsersChange(); // Re-fetch users
-        }
-    };
+        const roleOrder = { admin: 3, manager: 2, employee: 1 };
 
-    const executeDelete = async (user: Profile) => {
-        // RLS should prevent non-admins, but this is a double-check.
-        const { data: { session } } = await supabase.auth.getSession();
-        const { data: currentUserProfile } = await supabase.from('profiles').select('role').eq('id', session?.user.id).single();
+        return [...filtered].sort((a, b) => {
+            const dir = sortConfig.direction === 'asc' ? 1 : -1;
+            switch(sortConfig.key) {
+                case 'full_name':
+                    return (a.full_name || '').localeCompare(b.full_name || '') * dir;
+                case 'role':
+                    return ((roleOrder[a.role] || 0) - (roleOrder[b.role] || 0)) * dir;
+                case 'created_at':
+                    return (new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()) * dir;
+                case 'last_sign_in_at':
+                    return (new Date(a.last_sign_in_at || 0).getTime() - new Date(b.last_sign_in_at || 0).getTime()) * dir;
+                case 'projects':
+                    const aCount = userProjectsMap.get(a.id)?.length || 0;
+                    const bCount = userProjectsMap.get(b.id)?.length || 0;
+                    return (aCount - bCount) * dir;
+                default:
+                    return 0;
+            }
+        });
+
+    }, [allUsers, userSearchTerm, sortConfig, userProjectsMap]);
+
+    const executeDeleteUser = async (user: Profile) => {
         if (currentUserProfile?.role !== 'admin') {
             addToast("You do not have permission to delete users.", "error");
             return;
         }
-        
         const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-        
         if (error) {
-            console.error("Error deleting user:", error);
             addToast(`Error: ${error.message}`, 'error');
         } else {
             addToast(`User ${user.full_name} deleted.`, 'success');
@@ -79,105 +113,93 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
 
     const handleDeleteUser = (user: Profile) => {
         modals.action.setState({
-            isOpen: true,
-            title: t.deleteUser,
-            message: t.confirmDeleteUser(user.full_name || user.id),
-            onConfirm: () => executeDelete(user),
-            confirmText: t.deleteTask,
+            isOpen: true, title: t.deleteUser, message: t.confirmDeleteUser(user.full_name || user.id),
+            onConfirm: () => executeDeleteUser(user), confirmText: t.deleteTask,
             confirmButtonClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
         });
     };
+    
+    const canPerformActionOnUser = (targetUser: Profile): boolean => {
+        if (!currentUserProfile) return false;
+        if (currentUserProfile.role === 'admin') return true;
+        if (currentUserProfile.role === 'manager' && targetUser.role === 'employee') return true;
+        return false;
+    };
 
     const RoleBadge: React.FC<{ role: Profile['role'] }> = ({ role }) => {
-        const isAdmin = role === 'admin';
-        return (
-            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isAdmin ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
-                {isAdmin ? t.admin : t.employee}
-            </span>
-        );
+        const config = {
+            admin: { label: t.admin, classes: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300' },
+            manager: { label: t.manager, classes: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' },
+            employee: { label: t.employee, classes: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' },
+        };
+        const { label, classes } = config[role] || config.employee;
+        return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${classes}`}>{label}</span>;
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800/50 rounded-lg shadow-md p-4 w-full animate-fadeInUp">
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
-                <h2 className="font-bold text-xl flex items-center gap-2">
-                    <UsersIcon />
-                    {t.userManagement} ({filteredUsers.length})
-                </h2>
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder={t.searchUsers}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full sm:w-64 pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                    />
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <SearchIcon size={16} className="text-gray-400" />
-                    </div>
-                </div>
+        <>
+            <div className="relative mb-4">
+                <input id="user-management-search" type="text" placeholder={t.searchUsers} value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="w-full sm:w-64 pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon size={16} className="text-gray-400" /></div>
             </div>
-
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th scope="col" className="px-6 py-3">{t.fullName}</th>
-                            <th scope="col" className="px-6 py-3">{t.role}</th>
-                            <th scope="col" className="px-6 py-3">{t.lastUpdated}</th>
-                            <th scope="col" className="px-6 py-3 text-right">{t.actions}</th>
+                            <SortableHeader sortKey="full_name" currentSort={sortConfig} setSort={setSortConfig} className="text-left">{t.fullName}</SortableHeader>
+                            <SortableHeader sortKey="role" currentSort={sortConfig} setSort={setSortConfig}>{t.role}</SortableHeader>
+                            <SortableHeader sortKey="projects" currentSort={sortConfig} setSort={setSortConfig}>Dự án</SortableHeader>
+                            <SortableHeader sortKey="created_at" currentSort={sortConfig} setSort={setSortConfig}>Ngày tạo</SortableHeader>
+                            <SortableHeader sortKey="last_sign_in_at" currentSort={sortConfig} setSort={setSortConfig}>Hoạt động gần nhất</SortableHeader>
+                            <th scope="col" className="px-6 py-3 text-center">{t.actions}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredUsers.map(user => (
-                            <tr key={user.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/20">
-                                <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar user={user} title={user.full_name || ''} size={32} />
-                                        <span>{user.full_name}</span>
-                                    </div>
-                                </th>
-                                <td className="px-6 py-4">
-                                    <RoleBadge role={user.role} />
-                                </td>
-                                <td className="px-6 py-4 tabular-nums">
-                                    {user.updated_at ? formatAbsoluteDateTime(user.updated_at, language, timezone) : 'N/A'}
-                                </td>
-                                <td className="px-6 py-4 text-right space-x-2">
-                                    <button onClick={() => handleEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}>
-                                        <EditIcon size={14} />
-                                    </button>
-                                    <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}>
-                                        <TrashIcon size={14} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {sortedAndFilteredUsers.map(user => {
+                            const projects = userProjectsMap.get(user.id) || [];
+                            return (
+                                <tr key={user.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/20">
+                                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                        <div className="flex items-center gap-3"><Avatar user={user} title={user.full_name || ''} size={32} /><span>{user.full_name}</span></div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center"><RoleBadge role={user.role} /></td>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="relative group">
+                                            <span className="font-semibold">{projects.length}</span>
+                                            {projects.length > 0 && (
+                                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 bg-gray-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 shadow-lg">
+                                                    <ul className="space-y-1">
+                                                        {projects.map(p => <li key={p.id} className="truncate">{p.name}</li>)}
+                                                    </ul>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-gray-800"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center tabular-nums">
+                                        {user.created_at ? formatAbsoluteDateTime(user.created_at, language, timezone) : 'N/A'}
+                                    </td>
+                                    <td className="px-6 py-4 text-center tabular-nums">
+                                        {user.last_sign_in_at ? formatAbsoluteDateTime(user.last_sign_in_at, language, timezone) : 'N/A'}
+                                    </td>
+                                    <td className="px-6 py-4 text-center space-x-2">
+                                        {canPerformActionOnUser(user) && (
+                                            <>
+                                                <button onClick={() => onEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}><EditIcon size={14} /></button>
+                                                <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}><TrashIcon size={14} /></button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            )
+                        })}
                     </tbody>
                 </table>
-                 {filteredUsers.length === 0 && (
-                     <p className="text-center py-8 text-gray-500">{t.noTasksFound}</p>
-                 )}
+                {sortedAndFilteredUsers.length === 0 && <p className="text-center py-8 text-gray-500">{t.noTasksFound}</p>}
             </div>
-            
-            {userToEdit && (
-                <EditEmployeeModal 
-                    isOpen={isEditModalOpen}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleSaveProfile}
-                    employee={userToEdit}
-                />
-            )}
-             <ActionModal
-                isOpen={modals.action.isOpen}
-                onClose={modals.action.close}
-                onConfirm={modals.action.onConfirm}
-                title={modals.action.title}
-                message={modals.action.message}
-                confirmText={modals.action.confirmText}
-                confirmButtonClass={modals.action.confirmButtonClass}
-            />
-        </div>
+        </>
     );
 };
 

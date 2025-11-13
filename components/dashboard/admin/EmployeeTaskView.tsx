@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
-import type { Profile, Task, TimeLog } from '../../../types';
+import type { Profile, Task, TimeLog, Project } from '../../../types';
 import { PlusIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import CalendarView, { CalendarSortState } from '../../CalendarView';
 import PerformanceSummary, { TimeRange } from '../../PerformanceSummary';
@@ -30,7 +31,8 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
+    // FIX: Add missing projectIds property to initial state to match Filters type.
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [], projectIds: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
@@ -204,9 +206,17 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
 
     return (
         <div className="w-full space-y-6">
+            {/* FIX: Restructure to separate PerformanceSummary and FilterBar. Moved invalid props and children to FilterBar. */}
             <PerformanceSummary
                 title={t.tasksFor(employee.full_name || "...")}
                 tasks={tasksForSummaryAndChart}
+            />
+            
+            <FilterBar 
+                filters={filters} 
+                onFilterChange={setFilters} 
+                allUsers={allUsers}
+                projects={[]}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
                 customMonth={customMonth}
@@ -221,9 +231,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
                     <span className="hidden sm:inline">{t.addNewTask}</span>
                 </button>
                 <DashboardViewToggle view={view} setView={setView} />
-            </PerformanceSummary>
-            
-            <FilterBar filters={filters} onFilterChange={setFilters} allUsers={allUsers} />
+            </FilterBar>
             
             {loading && tasks_safe.length === 0 ? (
                 <TaskBoardSkeleton />
@@ -241,4 +249,4 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
     );
 };
 
-export default EmployeeTaskView;
+export default React.memo(EmployeeTaskView);

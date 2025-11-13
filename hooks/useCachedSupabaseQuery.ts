@@ -34,39 +34,101 @@ export function useCachedSupabaseQuery<T>({
 
     try {
       const { data: freshData, error: queryError } = await query();
-
-      if (queryError) {
-        throw queryError;
-      }
-
+      if (queryError) throw queryError;
+      
       setData(freshData as T);
       setCachedData({ data: freshData as T, timestamp: Date.now() });
     } catch (err: any) {
       console.error(`Error fetching data for ${cacheKey}:`, err.message);
       setError(err);
-      // If fetch fails, keep showing stale data if available
       if (!cachedData?.data) {
         setData(null);
       }
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) {
+        setLoading(false);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey, query, setCachedData, ...dependencies]);
+  }, [cacheKey, ...dependencies]);
 
+  // Effect for initial load and when main dependencies change
   useEffect(() => {
     const isCacheStale = !cachedData || (Date.now() - cachedData.timestamp > CACHE_DURATION);
 
-    if (isCacheStale) {
-      // If cache is stale or empty, perform a full load
+    if (isCacheStale || !cachedData?.data) {
       fetchData(false);
     } else {
-      // If cache is fresh, show cached data and refresh in the background
       setData(cachedData.data);
-      setLoading(false); // We have data to show, so not in a "hard" loading state
-      fetchData(true); // Background refresh
+      setLoading(false);
+      fetchData(true); // Background refresh for freshness
     }
-  }, [fetchData, lastDataChange]); // Rerun when dependencies or lastDataChange timestamp changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData]);
+
+  // Effect for handling real-time data changes from subscriptions
+  useEffect(() => {
+    if (!lastDataChange || loading) {
+      return;
+    }
+    
+    const currentData = data;
+    
+    const isArrayOfObjects = (d: any): d is { id: any }[] => Array.isArray(d);
+
+    if (!isArrayOfObjects(currentData) && lastDataChange.type !== 'batch_update') {
+      fetchData(true);
+      return;
+    }
+
+    const updateAndCache = (newData: T) => {
+      setData(newData);
+      setCachedData({ data: newData, timestamp: Date.now() });
+    };
+
+    switch (lastDataChange.type) {
+      case 'add':
+        if(isArrayOfObjects(currentData)) {
+            if (!currentData.find(item => item.id === lastDataChange.payload.id)) {
+              updateAndCache([...currentData, lastDataChange.payload] as unknown as T);
+            }
+        }
+        break;
+      case 'update':
+        if(isArrayOfObjects(currentData)) {
+            let itemFound = false;
+            const updatedData = currentData.map(item => {
+              if (item.id === lastDataChange.payload.id) {
+                itemFound = true;
+                return lastDataChange.payload;
+              }
+              return item;
+            });
+            if (!itemFound) {
+              updatedData.push(lastDataChange.payload);
+            }
+            updateAndCache(updatedData as unknown as T);
+        }
+        break;
+      case 'delete':
+        if(isArrayOfObjects(currentData)) {
+            updateAndCache(currentData.filter(item => item.id !== lastDataChange.payload.id) as unknown as T);
+        }
+        break;
+      case 'delete_many':
+        if(isArrayOfObjects(currentData)) {
+            const idsToDelete = new Set(lastDataChange.payload.ids);
+            updateAndCache(currentData.filter(item => !idsToDelete.has(item.id)) as unknown as T);
+        }
+        break;
+      default:
+        // For batch_update or unknown types, fall back to a full refetch
+        fetchData(true);
+        break;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastDataChange]);
+
 
   return { data, loading, error };
 }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Task } from '../../types';
 import { useSettings } from '../../context/SettingsContext';
@@ -20,4 +21,4 @@ const PriorityIndicator: React.FC<{ priority: Task['priority'] }> = ({ priority 
     );
 }
 
-export default PriorityIndicator;
+export default React.memo(PriorityIndicator);

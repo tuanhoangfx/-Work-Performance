@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '../types';
-import { AdminView } from '../App';
+import { AdminView, DataChange } from '../App';
 import { useLocalStorage } from './useLocalStorage';
 
-export const useProfileAndUsers = (session: Session | null) => {
+export const useProfileAndUsers = (session: Session | null, lastDataChange: DataChange | null) => {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [allUsers, setAllUsers] = useLocalStorage<Profile[]>('all_users', []);
     const [loadingProfile, setLoadingProfile] = useState(true);
@@ -56,15 +56,11 @@ export const useProfileAndUsers = (session: Session | null) => {
 
     useEffect(() => {
         if (session?.user) {
-            // Only refetch the profile if it's not loaded yet, or if the user has changed.
-            // This prevents the loading flash on tab refocus when the session object gets a new reference.
             if (!profile || profile.id !== session.user.id) {
                 getProfile(session.user);
             } else {
-                // If profile is already loaded for the current user, ensure loading is false.
                 setLoadingProfile(false);
             }
-            // We can still refresh the user list in the background.
             getAllUsers();
         } else {
             setProfile(null);
@@ -72,7 +68,19 @@ export const useProfileAndUsers = (session: Session | null) => {
             setLoadingProfile(false);
             setAdminView('myTasks');
         }
-    }, [session, profile, getProfile, getAllUsers, setAllUsers]);
+    }, [session, getProfile, getAllUsers, setAllUsers]);
+
+     useEffect(() => {
+        if(!lastDataChange) return;
+
+        if(lastDataChange.type === 'batch_update' && lastDataChange.payload?.table === 'profiles') {
+            getAllUsers();
+        }
+        if(lastDataChange.type === 'profile_change') {
+            setProfile(lastDataChange.payload as Profile);
+            getAllUsers(); // Also refresh the full list
+        }
+    }, [lastDataChange, getAllUsers]);
 
     return { profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers };
 };

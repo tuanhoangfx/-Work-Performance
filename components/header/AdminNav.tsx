@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { useSettings } from '../../context/SettingsContext';
-import { BriefcaseIcon, UsersIcon, ClipboardListIcon } from '../Icons';
+import { BriefcaseIcon, UsersIcon, ClipboardListIcon, SettingsIcon } from '../Icons';
 import { AdminView } from '../../App';
 
 interface AdminNavProps {
@@ -14,7 +15,7 @@ const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView }) => {
     const navItems = [
         { view: 'myTasks' as AdminView, label: t.employeeDashboard, icon: BriefcaseIcon },
         { view: 'taskDashboard' as AdminView, label: t.adminDashboard, icon: ClipboardListIcon },
-        { view: 'userManagement' as AdminView, label: t.userManagement, icon: UsersIcon },
+        { view: 'management' as AdminView, label: t.management, icon: SettingsIcon },
     ];
 
     return (
@@ -34,4 +35,4 @@ const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView }) => {
     );
 };
 
-export default AdminNav;
+export default React.memo(AdminNav);

@@ -1,23 +1,28 @@
+
+
 import React, { useMemo } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Profile } from '../types';
-import { UsersIcon, CalendarIcon } from './Icons';
+import { Profile, Project } from '../types';
+import { UsersIcon, CalendarIcon, ProjectIcon } from './Icons';
 import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
 import TimeRangeSelect from './performance-summary/TimeRangeSelect';
 import MonthPicker from './performance-summary/MonthPicker';
 import type { TimeRange } from './PerformanceSummary';
+import { PROJECT_COLORS } from '../../constants';
 
 export interface Filters {
   searchTerm: string;
   creatorIds: string[];
   priorities: ('low' | 'medium' | 'high')[];
   dueDates: ('overdue' | 'today' | 'this_week')[];
+  projectIds: number[];
 }
 
 interface FilterBarProps {
   filters: Filters;
   onFilterChange: (filters: Filters) => void;
   allUsers: Profile[];
+  projects: Project[];
   children?: React.ReactNode;
   timeRange: TimeRange;
   setTimeRange: (range: TimeRange) => void;
@@ -33,6 +38,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   filters,
   onFilterChange,
   allUsers,
+  projects,
   children,
   timeRange,
   setTimeRange,
@@ -72,6 +78,15 @@ const FilterBar: React.FC<FilterBarProps> = ({
       avatarUrl: user.avatar_url || undefined
   }));
   
+  const projectOptions: MultiSelectOption[] = [
+      { id: '0', label: t.personalProject, icon: <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></span> },
+      ...projects.map(p => ({
+        id: p.id.toString(),
+        label: p.name,
+        icon: <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color || PROJECT_COLORS[p.id % PROJECT_COLORS.length] }}></span>
+      }))
+  ];
+  
   const dueDateOptions: MultiSelectOption[] = [
     { id: 'overdue', label: t.overdue, icon: <span className="text-base">⏰</span> },
     { id: 'today', label: t.dueToday, icon: <span className="text-base">🗓️</span> },
@@ -85,6 +100,15 @@ const FilterBar: React.FC<FilterBarProps> = ({
         return user?.full_name || '1 Creator';
     }
     return `${selectedCount} ${language === 'vi' ? 'người tạo' : 'Creators'}`;
+  };
+  
+  const getProjectLabel = (selectedCount: number, totalCount: number) => {
+    if (selectedCount === 0 || selectedCount === totalCount) return t.allProjects;
+    if (selectedCount === 1) {
+        const project = projectOptions.find(p => p.id === filters.projectIds[0].toString());
+        return project?.label || '1 Project';
+    }
+    return `${selectedCount} Projects`;
   };
   
   const getPriorityLabel = (selectedCount: number) => {
@@ -123,11 +147,16 @@ const FilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <TimeRangeSelect
-          value={timeRange}
-          onChange={setTimeRange}
-          options={timeRangeOptions}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <MultiSelectDropdown
+            buttonIcon={<ProjectIcon size={16}/>}
+            selectedIds={filters.projectIds.map(String)}
+            onChange={(ids) => onFilterChange({ ...filters, projectIds: ids.map(Number) })}
+            options={projectOptions}
+            buttonLabel={getProjectLabel}
+            allLabel={t.allProjects}
+            searchPlaceholder="Search projects..."
+            widthClass='w-full'
         />
         <MultiSelectDropdown
             buttonIcon={<CalendarIcon size={16}/>}
@@ -159,6 +188,11 @@ const FilterBar: React.FC<FilterBarProps> = ({
             searchPlaceholder="Search priorities..."
             widthClass='w-full'
         />
+        <TimeRangeSelect
+          value={timeRange}
+          onChange={setTimeRange}
+          options={timeRangeOptions}
+        />
       </div>
 
       {timeRange === 'customMonth' && (
@@ -188,4 +222,4 @@ const FilterBar: React.FC<FilterBarProps> = ({
   );
 };
 
-export default FilterBar;
+export default React.memo(FilterBar);

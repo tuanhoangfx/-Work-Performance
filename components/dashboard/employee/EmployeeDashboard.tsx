@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { supabase } from '../../../lib/supabase';
-import type { Task, TimeLog, Profile } from '../../../types';
+import type { Task, TimeLog, Profile, ProjectMember, Project } from '../../../types';
 import type { Session } from '@supabase/supabase-js';
 import { ClipboardListIcon, CheckCircleIcon, XCircleIcon, SpinnerIcon } from '../../Icons';
 import CalendarView from '../../CalendarView';
@@ -29,14 +29,15 @@ interface TaskDashboardProps {
     activeTimer: TimeLog | null;
     allUsers: Profile[];
     setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
+    userProjects: ProjectMember[];
 }
 
-const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts }) => {
+const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChange, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, allUsers, setTaskCounts, userProjects }) => {
     const { t, timezone } = useSettings();
     const [view, setView] = useState<'board' | 'calendar'>('board');
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
-    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [] });
+    const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [], projectIds: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
         todo: { field: 'priority', direction: 'desc' },
         inprogress: { field: 'priority', direction: 'desc' },
@@ -49,7 +50,6 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         config: { field: 'compound_status_priority', direction: 'desc' }
     });
     
-    // State for time range filtering
     const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth');
     const [customMonth, setCustomMonth] = useState(new Date().toISOString().slice(0, 7));
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -58,7 +58,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     const taskQuery = useCallback(() => {
         return supabase
             .from('tasks')
-            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+            .select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
             .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`)
             .order('priority', { ascending: false })
             .order('created_at', { ascending: true });
@@ -144,7 +144,6 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
         if (draggedTaskId === null) return;
         const taskToMove = tasks_safe.find(t => t.id === draggedTaskId);
         if (taskToMove && taskToMove.status !== status) {
-            // Optimistic update handled by `useCachedSupabaseQuery` via `lastDataChange`
             onUpdateStatus(taskToMove, status);
         }
         setDraggedTaskId(null);
@@ -218,12 +217,15 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
          return <div className="text-center p-8">{t.signInToManageTasks}</div>;
     }
     
+    const projectsForFilter = userProjects.map(p => p.projects);
+    
     return (
         <div className="w-full animate-fadeInUp space-y-6">
             <FilterBar 
                 filters={filters} 
                 onFilterChange={setFilters} 
                 allUsers={allUsers}
+                projects={projectsForFilter}
                 timeRange={timeRange}
                 setTimeRange={setTimeRange}
                 customMonth={customMonth}

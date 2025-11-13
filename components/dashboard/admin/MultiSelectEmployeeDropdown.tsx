@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronDownIcon, SearchIcon } from '../../Icons';
+import { ChevronDownIcon, SearchIcon, PlusIcon } from '../../Icons';
 import Avatar from '../../common/Avatar';
 
 export interface MultiSelectOption {
@@ -18,6 +18,9 @@ interface MultiSelectDropdownProps {
   searchPlaceholder: string;
   allLabel: string;
   widthClass?: string;
+  onConfirmSelection?: () => void;
+  confirmLabel?: string | ((count: number) => string);
+  confirmIcon?: React.ReactNode;
 }
 
 const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
@@ -28,7 +31,10 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   buttonIcon,
   searchPlaceholder,
   allLabel,
-  widthClass = 'sm:w-52'
+  widthClass = 'sm:w-52',
+  onConfirmSelection,
+  confirmLabel,
+  confirmIcon,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,6 +77,14 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       onChange(options.map(u => u.id));
     }
   };
+  
+  const handleConfirm = () => {
+    if (onConfirmSelection) {
+        onConfirmSelection();
+        setIsOpen(false);
+    }
+  };
+
 
   return (
     <div className={`relative ${widthClass}`} ref={ref}>
@@ -87,7 +101,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-40 top-full mt-2 w-72 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-xl border dark:border-gray-700 animate-fadeIn flex flex-col max-h-96">
+        <div className="absolute z-40 top-full mt-2 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-xl border dark:border-gray-700 animate-fadeIn flex flex-col max-h-96">
           <div className="p-2 border-b border-gray-200 dark:border-gray-700">
             <div className="relative">
               <input
@@ -133,7 +147,28 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 </label>
               </li>
             ))}
+             {filteredOptions.length === 0 && (
+                <li className="px-3 py-2 text-center text-xs text-gray-500">No options match your search.</li>
+            )}
           </ul>
+          {onConfirmSelection && (
+            <div className="p-2 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <button
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={selectedIds.length === 0}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-md shadow-sm disabled:opacity-50"
+                >
+                    {confirmIcon || <PlusIcon size={16} />}
+                    <span>
+                        {typeof confirmLabel === 'function' 
+                            ? confirmLabel(selectedIds.length) 
+                            : confirmLabel || 'Add Selected'
+                        }
+                    </span>
+                </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
@@ -90,4 +91,4 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, on
   );
 };
 
-export default ActivityTicker;
+export default React.memo(ActivityTicker);

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Task } from '../types';
 import { useSettings } from '../context/SettingsContext';
@@ -210,4 +211,4 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, calenda
   );
 };
 
-export default CalendarView;
+export default React.memo(CalendarView);

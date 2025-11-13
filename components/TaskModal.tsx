@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { XIcon, SpinnerIcon } from './Icons';
+import { XIcon, SpinnerIcon, SettingsIcon } from './Icons';
 import { useSettings } from '../context/SettingsContext';
-import { Task, TaskAttachment, Profile, TaskComment } from '../types';
+import { Task, TaskAttachment, Profile, TaskComment, ProjectMember, Project } from '../types';
 import { supabase } from '../lib/supabase';
 import { useToasts } from '../context/ToastContext';
 
@@ -18,10 +19,12 @@ interface TaskModalProps {
   task: Task | Partial<Task> | null;
   allUsers: Profile[];
   currentUser: Profile | null;
+  userProjects: ProjectMember[];
+  onOpenDefaults: () => void;
 }
 
-const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser }) => {
-  const { t, defaultDueDateOffset, timezone } = useSettings();
+const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, allUsers, currentUser, userProjects, onOpenDefaults }) => {
+  const { t, defaultDueDateOffset, timezone, defaultPriority } = useSettings();
   const { addToast } = useToasts();
   
   // State for form fields
@@ -31,6 +34,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
+  const [projectId, setProjectId] = useState('personal');
 
   // State for attachments
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
@@ -46,8 +50,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const [isSaving, setIsSaving] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<number | null | undefined>(undefined);
   const [validationError, setValidationError] = useState<'title' | 'assignee' | null>(null);
+  const [assignableUsers, setAssignableUsers] = useState<Profile[]>(allUsers);
 
   const modalRef = useRef<HTMLDivElement>(null);
+  
+  const projectsForSelect = useMemo(() => userProjects.map(p => p.projects), [userProjects]);
 
   const fetchComments = useCallback(async (taskId: number) => {
     const { data, error } = await supabase
@@ -74,6 +81,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
                 setAttachments(task.task_attachments || []);
                 setAssigneeId(task.user_id || '');
+                setProjectId(task.project_id?.toString() || 'personal');
                 fetchComments(task.id);
                 setTempNewComments([]);
                 setOptimisticComments([]);
@@ -81,7 +89,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setTitle('');
                 setDescription('');
                 setStatus('todo');
-                setPriority('medium');
+                setPriority(defaultPriority);
                 
                 const targetDate = new Date();
                 targetDate.setDate(targetDate.getDate() + defaultDueDateOffset);
@@ -93,6 +101,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 setTempNewComments([]);
                 setOptimisticComments([]);
                 setAssigneeId(task?.user_id || currentUser?.id || '');
+                const latestProject = userProjects.length > 0 ? userProjects[0] : null;
+                setProjectId(
+                    currentUser?.default_project_id?.toString() ||
+                    latestProject?.project_id.toString() ||
+                    'personal'
+                );
             }
             setNewFiles([]);
             setEditingTaskId(currentTaskId);
@@ -103,7 +117,51 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
              setEditingTaskId(undefined);
         }
     }
-  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId, timezone]);
+  }, [task, isOpen, defaultDueDateOffset, currentUser, fetchComments, editingTaskId, timezone, defaultPriority, userProjects]);
+  
+   useEffect(() => {
+        if (!isOpen || !currentUser) return;
+
+        const updateAssignableUsers = async () => {
+            if (projectId === 'personal') {
+                const self = allUsers.find(u => u.id === currentUser.id);
+                const assignable = self ? [self] : [];
+                setAssignableUsers(assignable);
+                if (assigneeId !== currentUser.id) {
+                    setAssigneeId(currentUser.id);
+                }
+                return;
+            }
+
+            if (currentUser.role === 'admin') {
+                setAssignableUsers(allUsers);
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('project_members')
+                .select('profiles!inner(*)')
+                .eq('project_id', parseInt(projectId, 10));
+
+            if (error) {
+                console.error("Error fetching project members:", error);
+                addToast("Could not load project members.", "error");
+                setAssignableUsers([]);
+            } else {
+                const members = data.map(item => item.profiles) as Profile[];
+                setAssignableUsers(members);
+                
+                const isCurrentAssigneeValid = members.some(m => m.id === assigneeId);
+                if (!isCurrentAssigneeValid) {
+                    const isCurrentUserMember = members.some(m => m.id === currentUser.id);
+                    setAssigneeId(isCurrentUserMember ? currentUser.id : '');
+                }
+            }
+        };
+
+        updateAssignableUsers();
+    }, [projectId, allUsers, currentUser, isOpen, addToast]);
+
 
   useEffect(() => {
     if (validationError === 'title' && title.trim()) setValidationError(null);
@@ -126,18 +184,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     }
   }, [isOpen, handlePaste]);
   
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   const handlePostComment = async (content: string) => {
     if (!content.trim() || !currentUser) return;
     const isNewTask = !task || !('id' in task);
@@ -189,7 +235,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     const remainingAttachmentIds = attachments.map(att => att.id);
     const deletedAttachmentIds = originalAttachmentIds.filter(id => !remainingAttachmentIds.includes(id));
     
-    await onSave({ title, description, status, priority, due_date: dueDate || null, user_id: assigneeId }, 
+    await onSave({ title, description, status, priority, due_date: dueDate || null, user_id: assigneeId, project_id: projectId === 'personal' ? null : parseInt(projectId, 10) }, 
       newFiles, deletedAttachmentIds, tempNewComments.map(c => c.content));
 
     setIsSaving(false);
@@ -202,35 +248,46 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
           status: setStatus,
           priority: setPriority,
           dueDate: setDueDate,
-          assigneeId: setAssigneeId
+          assigneeId: setAssigneeId,
+          projectId: setProjectId,
       };
       setters[field]?.(value);
   }
 
-  const taskData = { title, description, status, priority, dueDate, assigneeId };
-  const formTaskData = { title, description, priority, dueDate, assigneeId };
+  const taskData = { title, description, status, priority, dueDate, assigneeId, projectId };
+  const formTaskData = { title, description, priority, dueDate, assigneeId, projectId };
 
 
   if (!isOpen) return null;
 
   return (
+    <>
     <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto p-2 sm:p-4 flex justify-center animate-fadeIn"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] overflow-y-auto p-2 sm:p-4 flex justify-center animate-fadeIn"
         onClick={onClose}
         role="dialog"
         aria-label={task && 'id' in task ? t.editTask : t.addNewTask}
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-4xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto md:max-h-[85vh]"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-5xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto md:max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
-            <div className="flex justify-end items-center px-3 py-2 sm:p-4 flex-shrink-0">
+            <div className="flex justify-end items-center px-3 py-2 sm:p-4 flex-shrink-0 gap-2">
+                <button 
+                    type="button"
+                    onClick={onOpenDefaults}
+                    className="p-1.5 rounded-full text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                    aria-label="Task Defaults"
+                    title="Task Defaults"
+                >
+                    <SettingsIcon size={22} />
+                </button>
                 <button 
                     type="button"
                     onClick={onClose} 
-                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors z-10"
+                    className="p-1.5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors z-10"
                     aria-label={t.close}
                 >
                     <XIcon size={24} />
@@ -249,7 +306,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                   <TaskDetailsForm
                     taskData={formTaskData}
                     onFieldChange={handleFieldChange}
-                    allUsers={allUsers}
+                    allUsers={assignableUsers}
+                    userProjects={projectsForSelect}
                     validationError={validationError}
                   />
                   <AttachmentSection
@@ -279,6 +337,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         </form>
       </div>
     </div>
+    </>
   );
 };
 
