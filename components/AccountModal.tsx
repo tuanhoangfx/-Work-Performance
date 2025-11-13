@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { XIcon, UserIcon } from './Icons';
+import { supabase } from '@/lib/supabase';
+import { XIcon, UserIcon } from '@/components/Icons';
 import type { Session } from '@supabase/supabase-js';
-import { useSettings } from '../context/SettingsContext';
-import { ProjectMember } from '../types';
+import { useSettings } from '@/context/SettingsContext';
+import { ProjectMember } from '@/types';
 
 interface AccountModalProps {
   isOpen: boolean;

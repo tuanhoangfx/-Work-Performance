@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
-import { useSettings } from '../context/SettingsContext';
-import { XIcon, SpinnerIcon, BellIcon, SearchIcon } from './Icons';
-import type { Notification } from '../types';
-import { formatAbsoluteDateTime } from '../lib/taskUtils';
-import Avatar from './common/Avatar';
-import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
+import { supabase } from '@/lib/supabase';
+import { useSettings } from '@/context/SettingsContext';
+import { XIcon, SpinnerIcon, BellIcon, SearchIcon } from '@/components/Icons';
+import type { Notification } from '@/types';
+import { formatAbsoluteDateTime } from '@/lib/taskUtils';
+import Avatar from '@/components/common/Avatar';
+import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
 
 interface NotificationsModalProps {
   isOpen: boolean;

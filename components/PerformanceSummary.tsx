@@ -1,9 +1,10 @@
 
+
 import React from 'react';
-import { Task } from '../types';
-import { useSettings } from '../context/SettingsContext';
-import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from './Icons';
-import StatCard from './performance-summary/StatCard';
+import { Task } from '@/types';
+import { useSettings } from '@/context/SettingsContext';
+import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@/components/Icons';
+import StatCard from '@/components/performance-summary/StatCard';
 
 // FIX: Define and export the TimeRange type to resolve import errors.
 export type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';

@@ -1,14 +1,14 @@
 
 
 import React, { useMemo } from 'react';
-import { useSettings } from '../context/SettingsContext';
-import { Profile, Project } from '../types';
-import { UsersIcon, CalendarIcon, ProjectIcon } from './Icons';
-import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
-import TimeRangeSelect from './performance-summary/TimeRangeSelect';
-import MonthPicker from './performance-summary/MonthPicker';
-import type { TimeRange } from './PerformanceSummary';
-import { PROJECT_COLORS } from '../constants';
+import { useSettings } from '@/context/SettingsContext';
+import { Profile, Project } from '@/types';
+import { UsersIcon, CalendarIcon, ProjectIcon } from '@/components/Icons';
+import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
+import TimeRangeSelect from '@/components/performance-summary/TimeRangeSelect';
+import MonthPicker from '@/components/performance-summary/MonthPicker';
+import type { TimeRange } from '@/components/PerformanceSummary';
+import { PROJECT_COLORS } from '@/constants';
 
 export interface Filters {
   searchTerm: string;

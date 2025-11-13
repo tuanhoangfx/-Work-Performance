@@ -1,16 +1,16 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { XIcon, SpinnerIcon, SettingsIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
-import { Task, TaskAttachment, Profile, TaskComment, ProjectMember, Project } from '../types';
-import { supabase } from '../lib/supabase';
-import { useToasts } from '../context/ToastContext';
+import { XIcon, SpinnerIcon, SettingsIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
+import { Task, TaskAttachment, Profile, TaskComment, ProjectMember, Project } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { useToasts } from '@/context/ToastContext';
 
-import TaskDetailsForm from './task-modal/TaskDetailsForm';
-import AttachmentSection from './task-modal/AttachmentSection';
-import CommentSection, { TempComment } from './task-modal/CommentSection';
-import TaskStatusStepper from './task-modal/TaskStatusStepper';
+import TaskDetailsForm from '@/components/task-modal/TaskDetailsForm';
+import AttachmentSection from '@/components/task-modal/AttachmentSection';
+import CommentSection, { TempComment } from '@/components/task-modal/CommentSection';
+import TaskStatusStepper from '@/components/task-modal/TaskStatusStepper';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -39,6 +39,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   // State for attachments
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<number[]>([]);
   
   // State for comments
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -54,7 +55,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
 
   const modalRef = useRef<HTMLDivElement>(null);
   
-  const projectsForSelect = useMemo(() => userProjects.map(p => p.projects), [userProjects]);
+  const projectsForSelect = useMemo(() => userProjects.map(p => p.projects).filter((p): p is Project => p !== null), [userProjects]);
 
   const fetchComments = useCallback(async (taskId: number) => {
     const { data, error } = await supabase
@@ -109,6 +110,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 );
             }
             setNewFiles([]);
+            setDeletedAttachmentIds([]);
             setEditingTaskId(currentTaskId);
             setValidationError(null);
         }
@@ -160,7 +162,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         };
 
         updateAssignableUsers();
-    }, [projectId, allUsers, currentUser, isOpen, addToast]);
+    }, [projectId, allUsers, currentUser, isOpen, addToast, assigneeId]);
 
 
   useEffect(() => {
@@ -199,145 +201,168 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         }]);
     } else {
         setIsPostingComment(true);
+        // FIX: Add missing properties `created_at` and `task_id` to satisfy the TempComment interface.
         const tempComment: TempComment = {
             id: `optimistic-${Date.now()}`,
             content: content,
             profiles: currentUser,
             user_id: currentUser.id,
             created_at: new Date().toISOString(),
-            task_id: task.id,
+            task_id: (task as Task).id,
             isSending: true,
         };
         setOptimisticComments(prev => [...prev, tempComment]);
         
-        const { error } = await supabase.from('task_comments').insert({ task_id: task.id, user_id: currentUser.id, content });
-        
-        await fetchComments(task.id);
-        setOptimisticComments([]);
+        try {
+            const { error } = await supabase.from('task_comments').insert({
+                task_id: (task as Task).id,
+                user_id: currentUser.id,
+                content: content
+            });
+            if (error) throw error;
+            
+            // Refetch comments to get the real one from DB
+            await fetchComments((task as Task).id);
 
-        if (error) {
-          console.error('Error posting comment:', error);
-          addToast(error.message, 'error');
+        } catch (error: any) {
+            console.error("Error posting comment:", error.message);
+            addToast(`Error posting comment: ${error.message}`, 'error');
+            // Remove optimistic comment on failure
+            setOptimisticComments(prev => prev.filter(c => c.id !== tempComment.id));
+        } finally {
+            setIsPostingComment(false);
+            // In case of success, the optimistic comment will be replaced by the real one from fetchComments
+            // so we always remove it
+            setOptimisticComments(prev => prev.filter(c => c.id !== tempComment.id));
         }
-        setIsPostingComment(false);
     }
   };
-  
-  const combinedComments = useMemo(() => [...comments, ...tempNewComments, ...optimisticComments], [comments, tempNewComments, optimisticComments]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) { setValidationError('title'); return; }
-    if (!assigneeId) { setValidationError('assignee'); return; }
+  const handleSaveClick = async () => {
+    if (!title.trim()) {
+      setValidationError('title');
+      return;
+    }
+    if (!assigneeId) {
+      setValidationError('assignee');
+      return;
+    }
 
     setIsSaving(true);
-    const originalAttachmentIds = (task && 'task_attachments' in task) ? task.task_attachments?.map(att => att.id) || [] : [];
-    const remainingAttachmentIds = attachments.map(att => att.id);
-    const deletedAttachmentIds = originalAttachmentIds.filter(id => !remainingAttachmentIds.includes(id));
     
-    await onSave({ title, description, status, priority, due_date: dueDate || null, user_id: assigneeId, project_id: projectId === 'personal' ? null : parseInt(projectId, 10) }, 
-      newFiles, deletedAttachmentIds, tempNewComments.map(c => c.content));
+    const taskData: Partial<Task> = {
+      title,
+      description,
+      status,
+      priority,
+      due_date: dueDate || null,
+      user_id: assigneeId,
+      project_id: projectId === 'personal' ? null : parseInt(projectId, 10),
+    };
 
+    const newCommentContents = tempNewComments.map(c => c.content);
+
+    await onSave(taskData, newFiles, deletedAttachmentIds, newCommentContents);
     setIsSaving(false);
   };
   
-  const handleFieldChange = (field: keyof(typeof taskData), value: string | Task['status'] | Task['priority']) => {
-      const setters: Record<string, Function> = {
-          title: setTitle,
-          description: setDescription,
-          status: setStatus,
-          priority: setPriority,
-          dueDate: setDueDate,
-          assigneeId: setAssigneeId,
-          projectId: setProjectId,
-      };
-      setters[field]?.(value);
-  }
-
-  const taskData = { title, description, status, priority, dueDate, assigneeId, projectId };
-  const formTaskData = { title, description, priority, dueDate, assigneeId, projectId };
-
-
   if (!isOpen) return null;
 
+  const combinedComments = [...comments, ...tempNewComments, ...optimisticComments];
+
   return (
-    <>
-    <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] overflow-y-auto p-2 sm:p-4 flex justify-center animate-fadeIn"
-        onClick={onClose}
-        role="dialog"
-        aria-label={task && 'id' in task ? t.editTask : t.addNewTask}
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center overflow-y-auto p-4 animate-fadeIn"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-modal-title"
     >
-      <div 
+      <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm md:max-w-5xl transform transition-all duration-300 ease-out animate-fadeInUp flex flex-col my-auto md:max-h-[85vh]"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl transform transition-all duration-300 ease-out animate-fadeInUp my-auto max-h-[95vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <form onSubmit={handleSubmit} className="flex flex-col h-full">
-            <div className="flex justify-end items-center px-3 py-2 sm:p-4 flex-shrink-0 gap-2">
-                <button 
-                    type="button"
-                    onClick={onOpenDefaults}
-                    className="p-1.5 rounded-full text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
-                    aria-label="Task Defaults"
-                    title="Task Defaults"
-                >
-                    <SettingsIcon size={22} />
-                </button>
-                <button 
-                    type="button"
-                    onClick={onClose} 
-                    className="p-1.5 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors z-10"
-                    aria-label={t.close}
-                >
-                    <XIcon size={24} />
-                </button>
-            </div>
-            <div className="flex-grow overflow-y-auto">
-              <div className="px-3 pt-0 sm:px-6 sm:pt-0">
-                <TaskStatusStepper 
-                    currentStatus={status} 
-                    onStatusChange={(newStatus) => handleFieldChange('status', newStatus)}
-                />
-              </div>
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <h2 id="task-modal-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            {editingTaskId ? t.editTask : t.addNewTask}
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+                type="button"
+                onClick={onOpenDefaults}
+                aria-label="Open task default settings"
+                title="Task Defaults"
+                className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+              <SettingsIcon size={20} />
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              aria-label={t.close}
+            >
+              <XIcon size={24} />
+            </button>
+          </div>
+        </div>
 
-              <div className="px-3 py-2 sm:px-6 sm:py-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-0">
-                <div className="space-y-3">
-                  <TaskDetailsForm
-                    taskData={formTaskData}
-                    onFieldChange={handleFieldChange}
-                    allUsers={assignableUsers}
-                    userProjects={projectsForSelect}
-                    validationError={validationError}
-                  />
-                  <AttachmentSection
-                    attachments={attachments}
-                    newFiles={newFiles}
-                    onAddNewFiles={(files) => setNewFiles(prev => [...prev, ...files])}
-                    onRemoveNewFile={(index) => setNewFiles(prev => prev.filter((_, i) => i !== index))}
-                    onRemoveExistingAttachment={(id) => setAttachments(prev => prev.filter(att => att.id !== id))}
-                    isSaving={isSaving}
+        <div className="flex-grow overflow-y-auto">
+            <div className="p-4 md:p-6">
+                <TaskStatusStepper currentStatus={status} onStatusChange={setStatus} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 md:px-6">
+                <div className="space-y-4">
+                     <TaskDetailsForm
+                        taskData={{ title, description, priority, dueDate, assigneeId, projectId }}
+                        onFieldChange={(field, value) => {
+                            if (field === 'title') setTitle(value as string);
+                            if (field === 'description') setDescription(value as string);
+                            if (field === 'priority') setPriority(value as Task['priority']);
+                            if (field === 'dueDate') setDueDate(value as string);
+                            if (field === 'assigneeId') setAssigneeId(value as string);
+                            if (field === 'projectId') setProjectId(value as string);
+                        }}
+                        allUsers={assignableUsers}
+                        userProjects={projectsForSelect}
+                        validationError={validationError}
+                    />
+                    <AttachmentSection 
+                        attachments={attachments} 
+                        newFiles={newFiles}
+                        onAddNewFiles={(files) => setNewFiles(prev => [...prev, ...files])}
+                        onRemoveNewFile={(index) => setNewFiles(prev => prev.filter((_, i) => i !== index))}
+                        onRemoveExistingAttachment={(id) => {
+                            setDeletedAttachmentIds(prev => [...prev, id]);
+                            setAttachments(prev => prev.filter(att => att.id !== id));
+                        }}
+                        isSaving={isSaving}
+                    />
+                </div>
+                <div>
+                  <CommentSection 
+                      comments={combinedComments} 
+                      onPostComment={handlePostComment}
+                      isPostingComment={isPostingComment}
                   />
                 </div>
-                <div className="flex flex-col mt-3 md:mt-0">
-                  <CommentSection
-                    comments={combinedComments}
-                    isPostingComment={isPostingComment}
-                    onPostComment={handlePostComment}
-                  />
-                </div>
-              </div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 sm:px-6 sm:py-3 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">
-                <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.cancel}</button>
-                <button type="submit" disabled={isSaving} className="px-4 py-2 w-24 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-md shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50 flex justify-center items-center">
-                    {isSaving ? <SpinnerIcon className="animate-spin" size={20} /> : t.save}
-                </button>
-            </div>
-        </form>
+        </div>
+
+        <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.cancel}</button>
+          <button
+            type="button"
+            onClick={handleSaveClick}
+            disabled={isSaving}
+            className="px-4 py-2 w-24 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-md shadow-md flex justify-center items-center disabled:opacity-50"
+          >
+            {isSaving ? <SpinnerIcon size={20} className="animate-spin" /> : t.save}
+          </button>
+        </div>
       </div>
     </div>
-    </>
   );
 };
 

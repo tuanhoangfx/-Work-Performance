@@ -1,13 +1,14 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
-import { supabase } from '../lib/supabase';
+import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
+import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
-import { Task } from '../types';
-import { TaskCounts } from '../App';
-import AnimatedNumber from './common/AnimatedNumber';
-import TaskPreviewPopover from './dashboard/TaskPreviewPopover';
+import { Task } from '@/types';
+import { TaskCounts } from '@/App';
+import AnimatedNumber from '@/components/common/AnimatedNumber';
+import TaskPreviewPopover from '@/components/dashboard/TaskPreviewPopover';
 
 interface ActivityTickerProps {
     session: Session | null;

@@ -1,6 +1,7 @@
 
+
 import React from 'react';
-import { useSettings } from '../context/SettingsContext';
+import { useSettings } from '@/context/SettingsContext';
 
 const Footer: React.FC = () => {
   const { t } = useSettings();

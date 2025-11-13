@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { ChevronUpIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
+import { ChevronUpIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
 
 const ScrollToTopButton: React.FC = () => {
   const { t } = useSettings();

@@ -1,13 +1,13 @@
 
 
 import React from 'react';
-import SessionInfo from './SessionInfo';
-import ActivityTicker from './ActivityTicker';
+import SessionInfo from '@/components/SessionInfo';
+import ActivityTicker from '@/components/ActivityTicker';
 import type { Session } from '@supabase/supabase-js';
-import { PlusIcon, HistoryIcon, BellIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
-import { Profile, Task } from '../types';
-import { TaskCounts, AdminView } from '../App';
+import { PlusIcon, HistoryIcon, BellIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
+import { Profile, Task } from '@/types';
+import { TaskCounts, AdminView } from '@/App';
 
 interface TopBarProps {
     session: Session | null;

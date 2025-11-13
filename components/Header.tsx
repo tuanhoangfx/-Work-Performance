@@ -1,13 +1,13 @@
 import React from 'react';
-import TopBar from './TopBar';
-import SettingsController from './SettingsController';
-import { LogoIcon } from './Icons';
+import TopBar from '@/components/TopBar';
+import SettingsController from '@/components/SettingsController';
+import { LogoIcon } from '@/components/Icons';
 import type { Session } from '@supabase/supabase-js';
-import { useSettings } from '../context/SettingsContext';
-import type { Profile, Task } from '../types';
-import { TaskCounts, AdminView } from '../App';
-import UserMenu from './header/UserMenu';
-import AdminNav from './header/AdminNav';
+import { useSettings } from '@/context/SettingsContext';
+import type { Profile, Task } from '@/types';
+import { TaskCounts, AdminView } from '@/App';
+import UserMenu from '@/components/header/UserMenu';
+import AdminNav from '@/components/header/AdminNav';
 
 interface HeaderProps {
   session: Session | null;

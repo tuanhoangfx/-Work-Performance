@@ -2,43 +2,43 @@
 
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import { translations } from './translations';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
-import type { Task, ProjectMember, Profile, Project, Notification } from './types';
-import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from './components/Icons';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { translations } from '@/translations';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import type { Task, ProjectMember, Profile, Project, Notification } from '@/types';
+import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from '@/components/Icons';
 // FIX: Import useSettings hook to access translation and language settings.
-import { SettingsContext, ColorScheme, useSettings } from './context/SettingsContext';
-import { ToastProvider } from './context/ToastContext';
-import { useToasts } from './context/ToastContext';
+import { SettingsContext, ColorScheme, useSettings } from '@/context/SettingsContext';
+import { ToastProvider } from '@/context/ToastContext';
+import { useToasts } from '@/context/ToastContext';
 
 // Custom Hooks for logic separation
-import { useSupabaseAuth } from './hooks/useSupabaseAuth';
-import { useModalManager } from './hooks/useModalManager';
-import { useProfileAndUsers } from './hooks/useProfileAndUsers';
-import { useNotifications } from './hooks/useNotifications';
-import { useAppActions } from './hooks/useAppActions';
-import useIdleTimer from './hooks/useIdleTimer';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { useModalManager } from '@/hooks/useModalManager';
+import { useProfileAndUsers } from '@/hooks/useProfileAndUsers';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useAppActions } from '@/hooks/useAppActions';
+import useIdleTimer from '@/hooks/useIdleTimer';
 
 // Lazy load components
-const Header = lazy(() => import('./components/Header'));
-const Footer = lazy(() => import('./components/Footer'));
-const ScrollToTopButton = lazy(() => import('./components/ScrollToTopButton'));
-const AuthModal = lazy(() => import('./components/Auth'));
-const AccountModal = lazy(() => import('./components/AccountModal'));
-const UserGuideModal = lazy(() => import('./components/UserGuide'));
-const EmployeeDashboard = lazy(() => import('./components/dashboard/employee/EmployeeDashboard'));
-const AdminTaskDashboard = lazy(() => import('./components/dashboard/admin/AdminTaskDashboard'));
-const ManagementDashboard = lazy(() => import('./components/dashboard/admin/ManagementDashboard'));
-const TaskModal = lazy(() => import('./components/TaskModal'));
-const ActivityLogModal = lazy(() => import('./components/ActivityLogModal'));
-const NotificationsModal = lazy(() => import('./components/NotificationsModal'));
-const ActionModal = lazy(() => import('./components/ActionModal'));
-const ToastContainer = lazy(() => import('./components/ToastContainer'));
-const EditEmployeeModal = lazy(() => import('./components/EditEmployeeModal'));
-const ProjectDetailsModal = lazy(() => import('./components/dashboard/admin/ManageProjectMembersModal'));
-import { MemberDetails } from './components/dashboard/admin/ManageProjectMembersModal';
-const TaskDefaultsModal = lazy(() => import('./components/task-modal/TaskDefaultsModal'));
+const Header = lazy(() => import('@/components/Header'));
+const Footer = lazy(() => import('@/components/Footer'));
+const ScrollToTopButton = lazy(() => import('@/components/ScrollToTopButton'));
+const AuthModal = lazy(() => import('@/components/Auth'));
+const AccountModal = lazy(() => import('@/components/AccountModal'));
+const UserGuideModal = lazy(() => import('@/components/UserGuide'));
+const EmployeeDashboard = lazy(() => import('@/components/dashboard/employee/EmployeeDashboard'));
+const AdminTaskDashboard = lazy(() => import('@/components/dashboard/admin/AdminTaskDashboard'));
+const ManagementDashboard = lazy(() => import('@/components/dashboard/admin/ManagementDashboard'));
+const TaskModal = lazy(() => import('@/components/TaskModal'));
+const ActivityLogModal = lazy(() => import('@/components/ActivityLogModal'));
+const NotificationsModal = lazy(() => import('@/components/NotificationsModal'));
+const ActionModal = lazy(() => import('@/components/ActionModal'));
+const ToastContainer = lazy(() => import('@/components/ToastContainer'));
+const EditEmployeeModal = lazy(() => import('@/components/EditEmployeeModal'));
+const ProjectDetailsModal = lazy(() => import('@/components/dashboard/admin/ManageProjectMembersModal'));
+import { MemberDetails } from '@/components/dashboard/admin/ManageProjectMembersModal';
+const TaskDefaultsModal = lazy(() => import('@/components/task-modal/TaskDefaultsModal'));
 
 
 export type DataChange = {

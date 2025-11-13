@@ -1,7 +1,8 @@
 
+
 import React from 'react';
-import { translations } from '../translations';
-import { Translation, Task } from '../types';
+import { translations } from '@/translations';
+import { Translation, Task } from '@/types';
 
 export type ColorScheme = 'sky' | 'amethyst' | 'sunset' | 'emerald' | 'crimson';
 

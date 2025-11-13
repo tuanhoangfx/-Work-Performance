@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { useSettings } from '../context/SettingsContext';
-import { XIcon, SpinnerIcon, SearchIcon } from './Icons';
-import type { ActivityLog } from '../types';
-import { formatAbsoluteDateTime } from '../lib/taskUtils';
-import Avatar from './common/Avatar';
-import VirtualItem from './common/VirtualItem';
-import { ActivityLogItemSkeleton } from './Skeleton';
-import MultiSelectDropdown, { MultiSelectOption } from './dashboard/admin/MultiSelectEmployeeDropdown';
+import { supabase } from '@/lib/supabase';
+import { useSettings } from '@/context/SettingsContext';
+import { XIcon, SpinnerIcon, SearchIcon } from '@/components/Icons';
+import type { ActivityLog } from '@/types';
+import { formatAbsoluteDateTime } from '@/lib/taskUtils';
+import Avatar from '@/components/common/Avatar';
+import VirtualItem from '@/components/common/VirtualItem';
+import { ActivityLogItemSkeleton } from '@/components/Skeleton';
+import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
 
 interface ActivityLogModalProps {
   isOpen: boolean;

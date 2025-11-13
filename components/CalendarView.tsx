@@ -1,12 +1,11 @@
 
 
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Task } from '../types';
-import { useSettings } from '../context/SettingsContext';
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from './Icons';
-import { type SortConfig, sortTasks } from '../lib/taskUtils';
-import CalendarSortDropdown from './CalendarSortDropdown';
+import { Task } from '@/types';
+import { useSettings } from '@/context/SettingsContext';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from '@/components/Icons';
+import { type SortConfig, sortTasks } from '@/lib/taskUtils';
+import CalendarSortDropdown from '@/components/CalendarSortDropdown';
 
 export type CalendarSortState = { id: 'default' | 'status' | 'priority' | 'creation_date'; config: SortConfig; };
 

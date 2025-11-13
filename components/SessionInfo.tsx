@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GlobeIcon, ClockIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
+import { GlobeIcon, ClockIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
 
 const SessionInfo: React.FC = () => {
   const { t } = useSettings();

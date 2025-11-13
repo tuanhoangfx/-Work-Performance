@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { LogoIcon, XIcon } from './Icons';
-import { useSettings } from '../context/SettingsContext';
+import { supabase } from '@/lib/supabase';
+import { LogoIcon, XIcon } from '@/components/Icons';
+import { useSettings } from '@/context/SettingsContext';
 
 interface AuthModalProps {
     isOpen: boolean;

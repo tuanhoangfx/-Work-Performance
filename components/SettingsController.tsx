@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SunIcon, MoonIcon, CheckIcon, SettingsIcon } from './Icons';
-import { translations, languageOptions } from '../translations';
-import { useSettings, ColorScheme } from '../context/SettingsContext';
+import { SunIcon, MoonIcon, CheckIcon, SettingsIcon } from '@/components/Icons';
+import { translations, languageOptions } from '@/translations';
+import { useSettings, ColorScheme } from '@/context/SettingsContext';
 
 const colorThemes: { name: ColorScheme, from: string, to: string }[] = [
     { name: 'sky', from: 'from-sky-500', to: 'to-indigo-600' },
