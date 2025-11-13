@@ -21,9 +21,7 @@ const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView, profile }) => 
         { view: 'management' as AdminView, label: t.management, icon: SettingsIcon },
     ];
 
-    const availableNavItems = !profile ? [] : profile.role === 'admin' 
-        ? navItems 
-        : navItems.filter(item => item.view !== 'taskDashboard');
+    const availableNavItems = !profile ? [] : navItems;
 
     return (
         <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-0.5">

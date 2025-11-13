@@ -617,37 +617,9 @@ const vi: Translation = {
   noMembers: "Chưa có thành viên trong dự án này.",
 };
 
-const th: Translation = {
-  // This is a placeholder, you can add Thai translations here.
-  ...en,
-  language: "ภาษา",
-  management: "Management",
-  employeeDashboard: "งานของฉัน",
-  adminDashboard: "แดชบอร์ดผู้จัดการ",
-  myTasks: "งานของฉัน",
-  totalTasks: "งานทั้งหมด",
-  authHeader: "ยินดีต้อนรับสู่ Infi Project",
-  authPrompt: "ลงชื่อเข้าใช้เพื่อจัดการงานของคุณ",
-  dashboardTitle: "บอร์ดงาน",
-  addNewTask: "เพิ่มงานใหม่",
-  todo: "ต้องทำ",
-  inprogress: "กำลังทำ",
-  done: "เสร็จแล้ว",
-  cancelled: "ยกเลิกแล้ว",
-  customMonth: "เลือกเดือน",
-  customRange: "ช่วงวันที่",
-  copyTaskId: "คัดลอกรหัสงาน",
-  taskDeleted: "งานนี้ถูกลบแล้ว",
-  taskNotFound: "ไม่พบงาน",
-  saveTaskToComment: "บันทึกงานเพื่อเพิ่มความคิดเห็น",
-  dataRefreshed: "ข้อมูลถูกรีเฟรชโดยอัตโนมัติ",
-};
-
-
-export const translations = { en, vi, th };
+export const translations = { en, vi };
 
 export const languageOptions = [
     { id: 'en', name: 'English' },
     { id: 'vi', name: 'Tiếng Việt' },
-    { id: 'th', name: 'ไทย' },
 ];

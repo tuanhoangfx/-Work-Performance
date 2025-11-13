@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
@@ -15,6 +16,7 @@ import TaskColumn from '../../TaskColumn';
 import MultiSelectDropdown from './MultiSelectEmployeeDropdown';
 
 interface AllTasksViewProps {
+    profile: Profile | null;
     lastDataChange: DataChange | null;
     allUsers: Profile[];
     allProjects: Project[];
@@ -25,7 +27,7 @@ interface AllTasksViewProps {
     setTaskCounts: React.Dispatch<React.SetStateAction<TaskCounts>>;
 }
 
-const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, allProjects, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
+const AllTasksView: React.FC<AllTasksViewProps> = ({ profile, lastDataChange, allUsers, allProjects, onEditTask, onDeleteTask, onUpdateStatus, onClearCancelledTasks, setTaskCounts }) => {
     const { t, language, timezone } = useSettings();
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
@@ -43,13 +45,27 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ lastDataChange, allUsers, a
     const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const allTasksQuery = useCallback(() => {
-        return supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
-    }, []);
+    const allTasksQuery = useCallback(async () => {
+        if (!profile) return { data: [], error: null };
+
+        let query = supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').order('priority', { ascending: false }).order('created_at', { ascending: true });
+
+        if (profile.role === 'manager') {
+            const projectIds = allProjects.map(p => p.id);
+            if (projectIds.length === 0) {
+                 return { data: [], error: null };
+            }
+            query = query.in('project_id', projectIds);
+        }
+        
+        return query;
+
+    }, [profile, allProjects]);
 
     const { data: allTasks, loading } = useCachedSupabaseQuery<Task[]>({
-        cacheKey: 'admin_all_tasks',
+        cacheKey: `admin_all_tasks_${profile?.id}`,
         query: allTasksQuery,
+        dependencies: [profile, allProjects],
         lastDataChange,
     });
     

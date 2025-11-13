@@ -157,9 +157,10 @@ const DashboardManager: React.FC<{
                 />
             </div>
 
-            {profile.role === 'admin' && (
+            {(profile.role === 'admin' || profile.role === 'manager') && (
                 <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
                     <AdminTaskDashboard
+                        profile={profile}
                         lastDataChange={lastDataChange}
                         allUsers={allUsers}
                         onEditTask={modals.task.open}
