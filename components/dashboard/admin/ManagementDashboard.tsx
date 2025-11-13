@@ -39,34 +39,38 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
     }, [setProjectMemberships]);
     
     const fetchProjects = useCallback(async () => {
+        if (!props.currentUserProfile) return;
+
         if (projects.length === 0) {
             setLoadingProjects(true);
         }
         
         let query = supabase.from('projects').select('*, project_members(count)');
 
-        if (props.currentUserProfile?.role === 'manager') {
-            const { data: projectIds, error: pidsError } = await supabase
+        if (props.currentUserProfile.role === 'manager') {
+            const { data: memberProjectIds, error: memberError } = await supabase
                 .from('project_members')
                 .select('project_id')
                 .eq('user_id', props.currentUserProfile.id);
 
-            if (pidsError) {
-                console.error("Error fetching manager's project IDs", pidsError);
+            if (memberError) {
+                console.error("Error fetching manager's projects:", memberError);
                 setLoadingProjects(false);
                 return;
             }
-            const ids = projectIds.map(p => p.project_id);
-            if (ids.length > 0) {
-                query = query.in('id', ids);
+            
+            const projectIds = memberProjectIds.map(p => p.project_id);
+            if (projectIds.length > 0) {
+                 query = query.in('id', projectIds);
             } else {
-                // If a manager is in no projects, they should see an empty list.
+                // If manager is not in any project, set projects to empty and return
                 setProjects([]);
                 setLoadingProjects(false);
                 return;
             }
         }
-        
+
+
         const { data, error } = await query;
         if (error) {
             console.error("Error fetching projects", error);

@@ -394,52 +394,31 @@ const AppContent: React.FC = () => {
     if (!profile) return;
 
     const isNew = !project?.id;
-    const isManager = profile.role === 'manager';
+    let currentProjectData = project;
 
-    if (isManager && isNew) {
-        addToast("Managers cannot create new projects.", 'error');
+    // Step 1: Handle Project Details (Name, Color) - Admin only
+    if (profile.role === 'admin') {
+        const projectData = { name, color, ...(isNew && { created_by: profile.id }) };
+        const { data: savedProject, error: projectError } = isNew
+            ? await supabase.from('projects').insert(projectData).select().single()
+            : await supabase.from('projects').update({ name, color }).eq('id', project!.id).select().single();
+
+        if (projectError) {
+            addToast(projectError.message, 'error');
+            return;
+        }
+        currentProjectData = savedProject; // Update with latest data
+    }
+
+    if (!currentProjectData) {
+        // This could happen if a manager tries to create a project
+        addToast('Project could not be saved. You may not have permissions.', 'error');
         return;
     }
 
-    let savedProject: Project | null = project; // For managers, we start with the existing project
-    let projectError: any = null;
+    const projectId = currentProjectData.id;
 
-    // Only admins can create new projects or update project details
-    if (profile.role === 'admin') {
-        const projectData = { name, color, ...(isNew && { created_by: profile.id }) };
-        const result = isNew
-            ? await supabase.from('projects').insert(projectData).select().single()
-            : await supabase.from('projects').update({ name, color }).eq('id', project!.id).select().single();
-        savedProject = result.data;
-        projectError = result.error;
-    }
-
-
-    if (projectError) { addToast(projectError.message, 'error'); return; }
-    if (!savedProject) { addToast("Could not save project.", 'error'); return; }
-
-    const projectId = savedProject.id;
-    
-    if (isNew && savedProject) {
-        const { data: admins, error: adminError } = await supabase.from('profiles').select('id').eq('role', 'admin');
-        if (adminError) {
-            console.error("Could not fetch admins to notify", adminError);
-        } else if (admins) {
-            const notifications = admins.map(admin => ({
-                user_id: admin.id,
-                actor_id: profile.id,
-                type: 'new_project_created',
-                data: {
-                    project_id: savedProject.id,
-                    project_name: savedProject.name,
-                    creator_name: profile.full_name,
-                }
-            }));
-            const { error: notifError } = await supabase.from('notifications').insert(notifications);
-            if (notifError) console.error("Failed to create project notifications", notifError);
-        }
-    }
-    
+    // Step 2: Handle Member changes - Admin & Manager on existing projects
     if (!isNew) {
         const originalMemberIds = new Set(originalMembers.map(m => m.user_id));
         const updatedMemberIds = new Set(updatedMembers.map(m => m.user_id));
@@ -455,16 +434,35 @@ const AppContent: React.FC = () => {
             const { error } = await supabase.from('project_members').insert(toAddIds.map(userId => ({ project_id: projectId, user_id: userId })));
             if (error) addToast(`Error adding members: ${error.message}`, 'error');
         }
-    } else {
-         const { error: memberError } = await supabase.from('project_members').insert({ project_id: projectId, user_id: profile.id });
-         if (memberError) addToast("Project created, but failed to add creator as member.", 'error');
     }
-    
-    const successMessage = isNew 
-      ? 'Project created successfully' 
-      : (isManager ? 'Project members updated successfully' : 'Project updated successfully');
 
-    addToast(successMessage, 'success');
+    // Step 3: Handle New Project specific actions - Admin only
+    if (isNew && profile.role === 'admin' && currentProjectData) {
+        // Add creator as member
+        const { error: memberError } = await supabase.from('project_members').insert({ project_id: projectId, user_id: profile.id });
+        if (memberError) addToast("Project created, but failed to add creator as member.", 'error');
+        
+        // Send notifications
+        const { data: admins, error: adminError } = await supabase.from('profiles').select('id').eq('role', 'admin');
+        if (adminError) {
+            console.error("Could not fetch admins to notify", adminError);
+        } else if (admins) {
+            const notifications = admins.map(admin => ({
+                user_id: admin.id,
+                actor_id: profile.id,
+                type: 'new_project_created',
+                data: {
+                    project_id: projectId,
+                    project_name: name,
+                    creator_name: profile.full_name,
+                }
+            }));
+            const { error: notifError } = await supabase.from('notifications').insert(notifications);
+            if (notifError) console.error("Failed to create project notifications", notifError);
+        }
+    }
+
+    addToast(`Project ${isNew ? 'created' : 'updated'} successfully`, 'success');
     modals.editProject.close();
     notifyDataChange({ type: 'batch_update', payload: { table: 'projects' } });
 };
