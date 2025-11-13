@@ -130,6 +130,7 @@ const DashboardManager: React.FC<{
     }
 
     const isMyTasksVisible = (profile.role === 'employee') || ((profile.role === 'admin' || profile.role === 'manager') && adminView === 'myTasks');
+    const dummySetTaskCounts = () => {};
 
     return (
         <>
@@ -145,7 +146,7 @@ const DashboardManager: React.FC<{
                     onStopTimer={timerActions.handleStopTimer}
                     activeTimer={activeTimer}
                     allUsers={allUsers}
-                    setTaskCounts={setTaskCounts}
+                    setTaskCounts={isMyTasksVisible ? setTaskCounts : dummySetTaskCounts}
                     userProjects={userProjects}
                 />
             </div>
@@ -163,7 +164,7 @@ const DashboardManager: React.FC<{
                         onStartTimer={timerActions.handleStartTimer}
                         onStopTimer={timerActions.handleStopTimer}
                         activeTimer={activeTimer}
-                        setTaskCounts={setTaskCounts}
+                        setTaskCounts={adminView === 'taskDashboard' ? setTaskCounts : dummySetTaskCounts}
                     />
                 </div>
             )}
