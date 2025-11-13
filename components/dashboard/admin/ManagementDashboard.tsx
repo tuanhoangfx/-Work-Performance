@@ -27,12 +27,6 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
     const [projects, setProjects] = useLocalStorage<Project[]>('admin_projects_with_counts', []);
     const [loadingProjects, setLoadingProjects] = useState(projects.length === 0);
 
-    useEffect(() => {
-        if (props.currentUserProfile?.role === 'manager' && view === 'projects') {
-            setView('users');
-        }
-    }, [props.currentUserProfile, view]);
-
     const fetchMemberships = useCallback(async () => {
         const { data, error } = await supabase
             .from('project_members')
@@ -48,14 +42,39 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
         if (projects.length === 0) {
             setLoadingProjects(true);
         }
-        const { data, error } = await supabase.from('projects').select('*, project_members(count)');
+        
+        let query = supabase.from('projects').select('*, project_members(count)');
+
+        if (props.currentUserProfile?.role === 'manager') {
+            const { data: projectIds, error: pidsError } = await supabase
+                .from('project_members')
+                .select('project_id')
+                .eq('user_id', props.currentUserProfile.id);
+
+            if (pidsError) {
+                console.error("Error fetching manager's project IDs", pidsError);
+                setLoadingProjects(false);
+                return;
+            }
+            const ids = projectIds.map(p => p.project_id);
+            if (ids.length > 0) {
+                query = query.in('id', ids);
+            } else {
+                // If a manager is in no projects, they should see an empty list.
+                setProjects([]);
+                setLoadingProjects(false);
+                return;
+            }
+        }
+        
+        const { data, error } = await query;
         if (error) {
             console.error("Error fetching projects", error);
         } else if (data) {
             setProjects(data as Project[]);
         }
         setLoadingProjects(false);
-    }, [projects.length, setProjects]);
+    }, [projects.length, setProjects, props.currentUserProfile]);
 
     useEffect(() => {
         fetchMemberships();
@@ -85,7 +104,7 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
                     <button onClick={() => setView('users')} className={`px-4 py-1.5 text-sm font-semibold rounded-full flex items-center gap-2 transition-all ${view === 'users' ? 'bg-white dark:bg-gray-800 shadow text-[var(--accent-color)]' : 'text-gray-600 dark:text-gray-400'}`}>
                         <UsersIcon size={16} /> {t.userManagement}
                     </button>
-                    {props.currentUserProfile?.role === 'admin' && (
+                    {(props.currentUserProfile?.role === 'admin' || props.currentUserProfile?.role === 'manager') && (
                         <button onClick={() => setView('projects')} className={`px-4 py-1.5 text-sm font-semibold rounded-full flex items-center gap-2 transition-all ${view === 'projects' ? 'bg-white dark:bg-gray-800 shadow text-[var(--accent-color)]' : 'text-gray-600 dark:text-gray-400'}`}>
                             <ProjectIcon size={16} /> {t.projectManagement}
                         </button>
@@ -102,12 +121,13 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
                     projectMemberships={projectMemberships}
                 />
             ) : (
-                props.currentUserProfile?.role === 'admin' && (
+                (props.currentUserProfile?.role === 'admin' || props.currentUserProfile?.role === 'manager') && (
                     <ProjectManagementDashboard
                         onEditProject={props.onEditProject}
                         projects={projects}
                         loadingProjects={loadingProjects}
                         onProjectsChange={fetchProjects}
+                        currentUserProfile={props.currentUserProfile}
                     />
                 )
             )}

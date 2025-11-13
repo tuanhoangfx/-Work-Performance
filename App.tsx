@@ -394,13 +394,29 @@ const AppContent: React.FC = () => {
     if (!profile) return;
 
     const isNew = !project?.id;
-    const projectData = { name, color, ...(isNew && { created_by: profile.id }) };
+    const isManager = profile.role === 'manager';
 
-    const { data: savedProject, error: projectError } = isNew
-        ? await supabase.from('projects').insert(projectData).select().single()
-        : await supabase.from('projects').update({ name, color }).eq('id', project.id).select().single();
+    if (isManager && isNew) {
+        addToast("Managers cannot create new projects.", 'error');
+        return;
+    }
+
+    let savedProject: Project | null = project; // For managers, we start with the existing project
+    let projectError: any = null;
+
+    // Only admins can create new projects or update project details
+    if (profile.role === 'admin') {
+        const projectData = { name, color, ...(isNew && { created_by: profile.id }) };
+        const result = isNew
+            ? await supabase.from('projects').insert(projectData).select().single()
+            : await supabase.from('projects').update({ name, color }).eq('id', project!.id).select().single();
+        savedProject = result.data;
+        projectError = result.error;
+    }
+
 
     if (projectError) { addToast(projectError.message, 'error'); return; }
+    if (!savedProject) { addToast("Could not save project.", 'error'); return; }
 
     const projectId = savedProject.id;
     
@@ -444,7 +460,11 @@ const AppContent: React.FC = () => {
          if (memberError) addToast("Project created, but failed to add creator as member.", 'error');
     }
     
-    addToast(`Project ${isNew ? 'created' : 'updated'} successfully`, 'success');
+    const successMessage = isNew 
+      ? 'Project created successfully' 
+      : (isManager ? 'Project members updated successfully' : 'Project updated successfully');
+
+    addToast(successMessage, 'success');
     modals.editProject.close();
     notifyDataChange({ type: 'batch_update', payload: { table: 'projects' } });
 };
@@ -554,6 +574,7 @@ const AppContent: React.FC = () => {
             onSave={handleSaveProject}
             project={modals.editProject.editingProject}
             allUsers={allUsers}
+            currentUserProfile={profile}
           />
         )}
         {modals.taskDefaults.isOpen && profile && (

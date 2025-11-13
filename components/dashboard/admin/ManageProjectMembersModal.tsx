@@ -23,7 +23,8 @@ const ProjectDetailsModal: React.FC<{
     onSave: (name: string, color: string, updatedMembers: MemberDetails[], originalMembers: MemberDetails[], project?: Project | null) => Promise<void>;
     project?: Project | null;
     allUsers: Profile[];
-}> = ({ isOpen, onClose, onSave, project, allUsers }) => {
+    currentUserProfile: Profile;
+}> = ({ isOpen, onClose, onSave, project, allUsers, currentUserProfile }) => {
     const { t, language } = useSettings();
     const { addToast } = useToasts();
     const [name, setName] = useState('');
@@ -34,6 +35,8 @@ const ProjectDetailsModal: React.FC<{
     const [originalMembers, setOriginalMembers] = useState<MemberDetails[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(true);
     const [usersToAdd, setUsersToAdd] = useState<string[]>([]);
+    
+    const isManager = currentUserProfile.role === 'manager';
 
     const fetchMemberDetails = useCallback(async () => {
         if (!project || !project.id) {
@@ -163,13 +166,14 @@ const ProjectDetailsModal: React.FC<{
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm"
+                                    className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm disabled:opacity-50"
                                     required
+                                    disabled={isManager}
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Màu dự án</label>
-                                <div className="flex flex-wrap gap-2 mt-2">
+                                <div className={`flex flex-wrap gap-2 mt-2 ${isManager ? 'opacity-50 pointer-events-none' : ''}`}>
                                     {PROJECT_COLORS.map(c => (
                                         <button type="button" key={c} onClick={() => setColor(c)} style={{backgroundColor: c}} className={`w-7 h-7 rounded-full ring-offset-2 dark:ring-offset-gray-800 transition-all ${color === c ? 'ring-2 ring-[var(--accent-color)] scale-110' : 'hover:scale-110'}`}></button>
                                     ))}

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToasts } from '../../../context/ToastContext';
-import { Project } from '../../../types';
+import { Project, Profile } from '../../../types';
 import { PlusIcon, EditIcon, TrashIcon, SpinnerIcon, SearchIcon, ArrowUpIcon, ArrowDownIcon } from '../../Icons';
 import { useModalManager } from '../../../hooks/useModalManager';
 import { formatAbsoluteDateTime } from '../../../lib/taskUtils';
@@ -14,6 +14,7 @@ interface ProjectManagementDashboardProps {
     projects: Project[];
     loadingProjects: boolean;
     onProjectsChange: () => void;
+    currentUserProfile: Profile | null;
 }
 
 type SortKey = keyof Project | 'members';
@@ -45,7 +46,7 @@ const SortableHeader: React.FC<{
     );
 };
 
-const ProjectManagementDashboard: React.FC<ProjectManagementDashboardProps> = ({ onEditProject, projects, loadingProjects, onProjectsChange }) => {
+const ProjectManagementDashboard: React.FC<ProjectManagementDashboardProps> = ({ onEditProject, projects, loadingProjects, onProjectsChange, currentUserProfile }) => {
     const { t, language, timezone } = useSettings();
     const { addToast } = useToasts();
     const { modals } = useModalManager();
@@ -103,9 +104,11 @@ const ProjectManagementDashboard: React.FC<ProjectManagementDashboardProps> = ({
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon size={16} className="text-gray-400" /></div>
                 </div>
-                 <button onClick={() => onEditProject(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-sm transform transition-all duration-300 hover:scale-105 hover:shadow-md focus:outline-none">
-                    <PlusIcon size={14}/><span>Create Project</span>
-                </button>
+                {currentUserProfile?.role === 'admin' && (
+                    <button onClick={() => onEditProject(null)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-sm transform transition-all duration-300 hover:scale-105 hover:shadow-md focus:outline-none">
+                        <PlusIcon size={14}/><span>Create Project</span>
+                    </button>
+                )}
             </div>
             {loadingProjects ? <div className="flex justify-center items-center py-10"><SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" /></div> : (
                 <div className="overflow-x-auto">
@@ -128,7 +131,9 @@ const ProjectManagementDashboard: React.FC<ProjectManagementDashboardProps> = ({
                                     <td className="px-6 py-4 text-center font-semibold">{project.project_members?.[0]?.count ?? 0}</td>
                                     <td className="px-6 py-4 text-center space-x-2">
                                         <button onClick={() => onEditProject(project)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Edit Project"><EditIcon size={14} /></button>
-                                        <button onClick={() => handleDeleteProject(project)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title="Delete Project"><TrashIcon size={14} /></button>
+                                        {currentUserProfile?.role === 'admin' && (
+                                            <button onClick={() => handleDeleteProject(project)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title="Delete Project"><TrashIcon size={14} /></button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
