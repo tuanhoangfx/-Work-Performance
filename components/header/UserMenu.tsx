@@ -1,9 +1,10 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '../../context/SettingsContext';
 import type { Profile } from '../../types';
-import { LogOutIcon, UserIcon } from '../Icons';
+import { LogOutIcon, UserIcon, SpinnerIcon } from '../Icons';
 import Avatar from '../common/Avatar';
 
 interface UserMenuProps {
@@ -16,6 +17,7 @@ interface UserMenuProps {
 const UserMenu: React.FC<UserMenuProps> = 
 ({ session, profile, onAccountClick, handleSignOut }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { t } = useSettings();
 
@@ -36,6 +38,12 @@ const UserMenu: React.FC<UserMenuProps> =
         full_name: displayName,
         avatar_url: avatarUrl
     };
+    
+    const handleSignOutClick = () => {
+        setIsSigningOut(true);
+        handleSignOut();
+        setIsOpen(false);
+    }
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -63,11 +71,12 @@ const UserMenu: React.FC<UserMenuProps> =
                         </button>
                         <div className="my-1 border-t border-black/10 dark:border-white/10"></div>
                         <button
-                            onClick={() => { handleSignOut(); setIsOpen(false); }}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                            onClick={handleSignOutClick}
+                            disabled={isSigningOut}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-70"
                         >
-                            <LogOutIcon size={16} />
-                            <span>{t.signOut}</span>
+                            {isSigningOut ? <SpinnerIcon size={16} className="animate-spin" /> : <LogOutIcon size={16} />}
+                            <span>{isSigningOut ? t.signingIn : t.signOut}</span>
                         </button>
                     </div>
                 </div>
