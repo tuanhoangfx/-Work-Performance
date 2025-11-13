@@ -4,18 +4,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToasts } from '../../../context/ToastContext';
-import { Project, Profile, ProjectMember } from '../../../types';
+import { Project, Profile, ProjectMember, MemberDetails } from '../../../types';
 import { PlusIcon, SpinnerIcon, TrashIcon } from '../../Icons';
 import { useModalManager } from '../../../hooks/useModalManager';
 import ActionModal from '../../ActionModal';
 import { getRandomColor, PROJECT_COLORS } from '../../../constants';
 import Avatar from '../../common/Avatar';
 import MultiSelectDropdown from './MultiSelectEmployeeDropdown';
-
-export interface MemberDetails extends ProjectMember {
-    profiles: Profile;
-    task_count: number;
-}
 
 interface ProjectDetailsModalProps {
     isOpen: boolean;

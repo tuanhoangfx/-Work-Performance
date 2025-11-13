@@ -2,43 +2,36 @@
 
 import React, { useState, useEffect, useCallback, Suspense, lazy, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { translations } from '@/translations';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import type { Task, ProjectMember, Profile, Project, Notification } from '@/types';
+import type { Task, ProjectMember, Profile, Project, Notification, MemberDetails } from '@/types';
 import { QuestionMarkCircleIcon, ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from '@/components/Icons';
-// FIX: Import useSettings hook to access translation and language settings.
 import { SettingsContext, ColorScheme, useSettings } from '@/context/SettingsContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { useToasts } from '@/context/ToastContext';
 
-// Custom Hooks for logic separation
+// Custom Hooks
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { useModalManager } from '@/hooks/useModalManager';
 import { useProfileAndUsers } from '@/hooks/useProfileAndUsers';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAppActions } from '@/hooks/useAppActions';
 import useIdleTimer from '@/hooks/useIdleTimer';
+import { useProjects } from '@/hooks/useProjects';
+import { useRealtime } from '@/hooks/useRealtime';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
+// FIX: Import the missing useLocalStorage hook.
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 // Lazy load components
 const Header = lazy(() => import('@/components/Header'));
 const Footer = lazy(() => import('@/components/Footer'));
 const ScrollToTopButton = lazy(() => import('@/components/ScrollToTopButton'));
-const AuthModal = lazy(() => import('@/components/Auth'));
-const AccountModal = lazy(() => import('@/components/AccountModal'));
-const UserGuideModal = lazy(() => import('@/components/UserGuide'));
 const EmployeeDashboard = lazy(() => import('@/components/dashboard/employee/EmployeeDashboard'));
 const AdminTaskDashboard = lazy(() => import('@/components/dashboard/admin/AdminTaskDashboard'));
 const ManagementDashboard = lazy(() => import('@/components/dashboard/admin/ManagementDashboard'));
-const TaskModal = lazy(() => import('@/components/TaskModal'));
-const ActivityLogModal = lazy(() => import('@/components/ActivityLogModal'));
-const NotificationsModal = lazy(() => import('@/components/NotificationsModal'));
-const ActionModal = lazy(() => import('@/components/ActionModal'));
 const ToastContainer = lazy(() => import('@/components/ToastContainer'));
-const EditEmployeeModal = lazy(() => import('@/components/EditEmployeeModal'));
-const ProjectDetailsModal = lazy(() => import('@/components/dashboard/admin/ManageProjectMembersModal'));
-import { MemberDetails } from '@/components/dashboard/admin/ManageProjectMembersModal';
-const TaskDefaultsModal = lazy(() => import('@/components/task-modal/TaskDefaultsModal'));
+const AppModals = lazy(() => import('@/components/AppModals'));
 
 
 export type DataChange = {
@@ -195,7 +188,7 @@ const AppContent: React.FC = () => {
   const { session, loading: authLoading, handleSignOut } = useSupabaseAuth();
   const { modals } = useModalManager();
   const { addToast } = useToasts();
-  const { t, language } = useSettings();
+  const { t } = useSettings();
   
   const locallyUpdatedTaskIds = useRef(new Set<number>());
   const [lastDataChange, setLastDataChange] = useState<DataChange | null>(null);
@@ -204,14 +197,18 @@ const AppContent: React.FC = () => {
   }, []);
 
   const [taskCounts, setTaskCounts] = useState<TaskCounts>({ todo: 0, inprogress: 0, done: 0 });
-  const [userProjects, setUserProjects] = useLocalStorage<ProjectMember[]>(
-    session ? `user_projects_${session.user.id}` : 'user_projects_guest',
-    []
-  );
 
   const {
       profile, allUsers, loadingProfile, adminView, setAdminView, getProfile, getAllUsers
   } = useProfileAndUsers(session, lastDataChange);
+
+  const { userProjects, handleSaveProject } = useProjects({
+      session,
+      profile,
+      lastDataChange,
+      notifyDataChange,
+      closeProjectModal: modals.editProject.close,
+  });
   
   const { unreadCount, setUnreadCount } = useNotifications(session);
 
@@ -226,6 +223,10 @@ const AppContent: React.FC = () => {
       t,
       locallyUpdatedTaskIds,
   });
+  
+  const canAddTask = !!(session && profile);
+  useRealtime({ session, locallyUpdatedTaskIds, notifyDataChange });
+  useGlobalShortcuts({ modals, canAddTask });
 
   const handleIdle = useCallback(() => {
     if (session && navigator.onLine) {
@@ -236,137 +237,6 @@ const AppContent: React.FC = () => {
   }, [session, notifyDataChange, addToast, t.dataRefreshed]);
 
   useIdleTimer(handleIdle, 5 * 60 * 1000);
-
-  const canAddTask = !!(session && profile);
-
-  useEffect(() => {
-    const fetchUserProjects = async () => {
-      if (!session) {
-        setUserProjects([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('project_members')
-        .select('*, projects!inner(*)')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching user projects:", error);
-      } else {
-        setUserProjects(data as ProjectMember[]);
-      }
-    };
-    fetchUserProjects();
-  }, [session, lastDataChange, setUserProjects]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-        const target = event.target as HTMLElement;
-        const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-
-        if (event.ctrlKey || event.metaKey || event.altKey) return;
-        
-        // --- Global Shortcuts ---
-
-        // Close any open modal with 'Escape'
-        if (event.key === 'Escape' || event.key === 'Esc') {
-            event.preventDefault();
-            // This priority order is important to close top-level modals first
-            if (modals.action.isOpen) {
-                modals.action.close();
-            } else if (modals.taskDefaults.isOpen) {
-                modals.taskDefaults.close();
-            } else if (modals.task.isOpen) {
-                modals.task.close();
-            } else if (modals.editEmployee.isOpen) {
-                modals.editEmployee.close();
-            } else if (modals.editProject.isOpen) {
-                modals.editProject.close();
-            } else if (modals.account.isOpen) {
-                modals.account.close();
-            } else if (modals.activityLog.isOpen) {
-                modals.activityLog.close();
-            } else if (modals.notifications.isOpen) {
-                modals.notifications.close();
-            } else if (modals.userGuide.isOpen) {
-                modals.userGuide.close();
-            } else if (modals.auth.isOpen) {
-                modals.auth.close();
-            }
-            return;
-        }
-
-        // --- Shortcuts that should not work while typing ---
-        if (isTyping) return;
-
-        // Open 'New Task' modal with 'N'
-        if (event.key.toLowerCase() === 'n' && canAddTask) {
-            event.preventDefault();
-            const anyModalOpen = Object.values(modals).some(m => m.isOpen);
-            if (!anyModalOpen) {
-                modals.task.open(null);
-            }
-        }
-
-        // Focus search input with 'F'
-        if (event.key.toLowerCase() === 'f') {
-            event.preventDefault();
-            const searchInputs = Array.from(document.querySelectorAll<HTMLInputElement>(
-                'input[name="searchTerm"], #user-management-search, #project-management-search'
-            ));
-            const visibleSearchInput = searchInputs.find(input => input.offsetParent !== null);
-            if (visibleSearchInput) {
-                visibleSearchInput.focus();
-                visibleSearchInput.select();
-            }
-        }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canAddTask, modals]);
-
-  useEffect(() => {
-    if (!session || !isSupabaseConfigured) return;
-    const channels: RealtimeChannel[] = [];
-    const tasksChannel = supabase.channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' },
-        async (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            const updatedTaskId = payload.new.id as number;
-            if (locallyUpdatedTaskIds.current.has(updatedTaskId)) {
-                locallyUpdatedTaskIds.current.delete(updatedTaskId);
-                return;
-            }
-          }
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const { data: task, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('id', payload.new.id).single();
-            if (error) { console.error('Error fetching task from realtime update:', error); return; }
-            if (task) notifyDataChange({ type: payload.eventType === 'INSERT' ? 'add' : 'update', payload: task });
-          } else if (payload.eventType === 'DELETE') {
-            notifyDataChange({ type: 'delete', payload: { id: (payload.old as any).id } });
-          }
-        }
-      ).subscribe();
-    channels.push(tasksChannel);
-    const tablesToWatch = ['task_attachments', 'task_comments', 'projects', 'project_members', 'profiles'];
-    tablesToWatch.forEach(table => {
-      const channel = supabase.channel(`public:${table}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: table },
-          (payload) => {
-            if (table === 'profiles' && payload.eventType !== 'DELETE' && (payload.new as Profile).id === session?.user.id) {
-                 notifyDataChange({ type: 'profile_change', payload: payload.new });
-            } else {
-                 notifyDataChange({ type: 'batch_update', payload: { table } });
-            }
-          }
-        ).subscribe();
-      channels.push(channel);
-    });
-    return () => {
-      channels.forEach(channel => supabase.removeChannel(channel));
-    };
-  }, [session, notifyDataChange]);
 
   useEffect(() => {
     if (!session) setTaskCounts({ todo: 0, inprogress: 0, done: 0 });
@@ -399,83 +269,6 @@ const AppContent: React.FC = () => {
            }
       }
   }, [modals, t, profile, setAdminView, addToast]);
-
-  const handleSaveProject = async (name: string, color: string, updatedMembers: MemberDetails[], originalMembers: MemberDetails[], project: Project | null) => {
-    if (!profile) return;
-
-    const isNew = !project?.id;
-    let currentProjectData = project;
-
-    // Step 1: Handle Project Details (Name, Color) - Admin only
-    if (profile.role === 'admin') {
-        const projectData = { name, color, ...(isNew && { created_by: profile.id }) };
-        const { data: savedProject, error: projectError } = isNew
-            ? await supabase.from('projects').insert(projectData).select().single()
-            : await supabase.from('projects').update({ name, color }).eq('id', project!.id).select().single();
-
-        if (projectError) {
-            addToast(projectError.message, 'error');
-            return;
-        }
-        currentProjectData = savedProject; // Update with latest data
-    }
-
-    if (!currentProjectData) {
-        // This could happen if a manager tries to create a project
-        addToast('Project could not be saved. You may not have permissions.', 'error');
-        return;
-    }
-
-    const projectId = currentProjectData.id;
-
-    // Step 2: Handle Member changes - Admin & Manager on existing projects
-    if (!isNew) {
-        const originalMemberIds = new Set(originalMembers.map(m => m.user_id));
-        const updatedMemberIds = new Set(updatedMembers.map(m => m.user_id));
-        const toAddIds = [...updatedMemberIds].filter(id => !originalMemberIds.has(id));
-        const toRemoveIds = [...originalMemberIds].filter(id => !updatedMemberIds.has(id));
-
-        if (toRemoveIds.length > 0) {
-            const { error } = await supabase.from('project_members').delete().eq('project_id', projectId).in('user_id', toRemoveIds);
-            if (error) addToast(`Error removing members: ${error.message}`, 'error');
-        }
-
-        if (toAddIds.length > 0) {
-            const { error } = await supabase.from('project_members').insert(toAddIds.map(userId => ({ project_id: projectId, user_id: userId })));
-            if (error) addToast(`Error adding members: ${error.message}`, 'error');
-        }
-    }
-
-    // Step 3: Handle New Project specific actions - Admin only
-    if (isNew && profile.role === 'admin' && currentProjectData) {
-        // Add creator as member
-        const { error: memberError } = await supabase.from('project_members').insert({ project_id: projectId, user_id: profile.id });
-        if (memberError) addToast("Project created, but failed to add creator as member.", 'error');
-        
-        // Send notifications
-        const { data: admins, error: adminError } = await supabase.from('profiles').select('id').eq('role', 'admin');
-        if (adminError) {
-            console.error("Could not fetch admins to notify", adminError);
-        } else if (admins) {
-            const notifications = admins.map(admin => ({
-                user_id: admin.id,
-                actor_id: profile.id,
-                type: 'new_project_created',
-                data: {
-                    project_id: projectId,
-                    project_name: name,
-                    creator_name: profile.full_name,
-                }
-            }));
-            const { error: notifError } = await supabase.from('notifications').insert(notifications);
-            if (notifError) console.error("Failed to create project notifications", notifError);
-        }
-    }
-
-    addToast(`Project ${isNew ? 'created' : 'updated'} successfully`, 'success');
-    modals.editProject.close();
-    notifyDataChange({ type: 'batch_update', payload: { table: 'projects' } });
-};
 
   return (
       <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans flex flex-col">
@@ -535,65 +328,19 @@ const AppContent: React.FC = () => {
             </button>
         </div>
         
-        <AuthModal isOpen={modals.auth.isOpen} onClose={modals.auth.close} />
-        <AccountModal isOpen={modals.account.isOpen} onClose={() => { modals.account.close(); if (session) getProfile(session.user); }} session={session} />
-        <UserGuideModal isOpen={modals.userGuide.isOpen} onClose={modals.userGuide.close} />
-        <TaskModal 
-          isOpen={modals.task.isOpen}
-          onClose={modals.task.close}
-          onSave={async (taskData, newFiles, deletedIds, newComments) => {
-            const success = await taskActions.handleSaveTask(taskData, modals.task.editingTask, newFiles, deletedIds, newComments);
-            if (success) modals.task.close();
-          }}
-          task={modals.task.editingTask}
-          allUsers={allUsers}
-          currentUser={profile}
-          userProjects={userProjects}
-          onOpenDefaults={modals.taskDefaults.open}
-        />
-        <ActivityLogModal isOpen={modals.activityLog.isOpen} onClose={modals.activityLog.close} />
-        <NotificationsModal isOpen={modals.notifications.isOpen} onClose={modals.notifications.close} onNotificationClick={handleNotificationClick} setUnreadCount={setUnreadCount} />
-        <ActionModal
-          isOpen={modals.action.isOpen}
-          onClose={modals.action.close}
-          onConfirm={modals.action.onConfirm}
-          title={modals.action.title}
-          message={modals.action.message}
-          confirmText={modals.action.confirmText}
-          confirmButtonClass={modals.action.confirmButtonClass}
-        />
-        {modals.editEmployee.isOpen && modals.editEmployee.editingEmployee && profile && (
-            <EditEmployeeModal
-                isOpen={modals.editEmployee.isOpen}
-                onClose={modals.editEmployee.close}
-                onSave={() => {
-                    addToast(t.profileUpdated, 'success');
-                    getAllUsers();
-                    modals.editEmployee.close();
-                }}
-                employee={modals.editEmployee.editingEmployee}
-                currentUserProfile={profile}
-            />
-        )}
-        {modals.editProject.isOpen && profile && (
-          <ProjectDetailsModal
-            isOpen={modals.editProject.isOpen}
-            onClose={modals.editProject.close}
-            onSave={handleSaveProject}
-            project={modals.editProject.editingProject}
+        <AppModals
+            session={session}
+            profile={profile}
             allUsers={allUsers}
-            currentUserProfile={profile}
-          />
-        )}
-        {modals.taskDefaults.isOpen && profile && (
-            <TaskDefaultsModal
-                isOpen={modals.taskDefaults.isOpen}
-                onClose={modals.taskDefaults.close}
-                onSave={() => { if(session) getProfile(session.user) }}
-                currentUser={profile}
-                userProjects={userProjects}
-            />
-        )}
+            userProjects={userProjects}
+            modals={modals}
+            taskActions={taskActions}
+            getProfile={getProfile}
+            getAllUsers={getAllUsers}
+            setUnreadCount={setUnreadCount}
+            handleNotificationClick={handleNotificationClick}
+            handleSaveProject={handleSaveProject}
+        />
       </div>
   );
 }

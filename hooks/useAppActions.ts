@@ -1,4 +1,4 @@
-import { useState, useCallback, Dispatch, SetStateAction } from 'react';
+import { useState, useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Task, TimeLog } from '../types';
@@ -21,7 +21,8 @@ interface UseAppActionsProps {
     setActionModal: SetActionModal;
     notifyDataChange: (change: Omit<DataChange, 'timestamp'>) => void;
     t: any; // Translation object
-    locallyUpdatedTaskIds: React.MutableRefObject<Set<number>>;
+    // FIX: Use MutableRefObject directly instead of React.MutableRefObject
+    locallyUpdatedTaskIds: MutableRefObject<Set<number>>;
 }
 
 export const useAppActions = ({ session, setActionModal, notifyDataChange, t, locallyUpdatedTaskIds }: UseAppActionsProps) => {

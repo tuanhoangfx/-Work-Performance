@@ -52,6 +52,11 @@ export interface ProjectMember {
     profiles?: Profile;
 }
 
+export interface MemberDetails extends ProjectMember {
+    profiles: Profile;
+    task_count: number;
+}
+
 
 export interface Task {
   id: number;
