@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Task, Profile } from '@/types';
 import { useSettings } from '@/context/SettingsContext';
 import { TrashIcon, EditIcon, ClockIcon, PlayIcon, CheckCircleIcon, XCircleIcon, CalendarIcon, PaperclipIcon, ArrowRightIcon, ChatBubbleIcon, CheckIcon } from '@/components/Icons';
@@ -6,6 +6,7 @@ import PriorityIndicator from '@/components/common/PriorityIndicator';
 import Avatar from '@/components/common/Avatar';
 import { PROJECT_COLORS } from '@/constants';
 import { getTodayDateString } from '@/lib/taskUtils';
+import { DataChange } from '@/App';
 
 interface TaskCardProps {
     task: Task;
@@ -15,6 +16,7 @@ interface TaskCardProps {
     onDragStart: (taskId: number) => void;
     assignee?: Profile | null;
     creator?: Profile | null;
+    lastDataChange: DataChange | null;
 }
 
 const formatDuration = (ms: number) => {
@@ -57,10 +59,23 @@ const formatShortDate = (dateString: string) => {
 };
 
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator, lastDataChange }) => {
     const { t, language, timezone } = useSettings();
     const [duration, setDuration] = useState(0);
     const [copied, setCopied] = useState(false);
+    const [isHighlighted, setIsHighlighted] = useState(false);
+
+    useEffect(() => {
+        if (lastDataChange && lastDataChange.type === 'update' && lastDataChange.payload.id === task.id) {
+            // Check if the update was recent to avoid highlighting on stale re-renders
+            if (Date.now() - lastDataChange.timestamp < 1500) {
+                 setIsHighlighted(true);
+                 const timer = setTimeout(() => setIsHighlighted(false), 1500); // Match animation duration
+                 return () => clearTimeout(timer);
+            }
+        }
+    }, [lastDataChange, task.id]);
+
 
     const isDone = task.status === 'done';
     const isCancelled = task.status === 'cancelled';
@@ -139,7 +154,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
 
     return (
         <div 
-            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${cardDynamicStyles}`}
+            className={`relative bg-white dark:bg-gray-900/70 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700/50 animate-fadeIn flex flex-col gap-2 transition-all ${cardDynamicStyles} ${isHighlighted ? 'animate-highlight-update' : ''}`}
             draggable={!isArchived}
             onDragStart={() => onDragStart(task.id)}
         >

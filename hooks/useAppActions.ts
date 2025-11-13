@@ -21,9 +21,10 @@ interface UseAppActionsProps {
     setActionModal: SetActionModal;
     notifyDataChange: (change: Omit<DataChange, 'timestamp'>) => void;
     t: any; // Translation object
+    locallyUpdatedTaskIds: React.MutableRefObject<Set<number>>;
 }
 
-export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: UseAppActionsProps) => {
+export const useAppActions = ({ session, setActionModal, notifyDataChange, t, locallyUpdatedTaskIds }: UseAppActionsProps) => {
     const [activeTimer, setActiveTimer] = useState<TimeLog | null>(null);
     const { addToast } = useToasts();
 
@@ -56,6 +57,14 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
         }
         
         const isNewTask = !editingTask || !('id' in editingTask) || !editingTask.id;
+        if (!isNewTask) {
+            const taskId = (editingTask as Task).id;
+            locallyUpdatedTaskIds.current.add(taskId);
+            setTimeout(() => {
+                locallyUpdatedTaskIds.current.delete(taskId);
+            }, 5000);
+        }
+        
         const dataToSave = { 
             ...taskData,
             ...(isNewTask && { created_by: session.user.id })
@@ -137,6 +146,10 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
         } catch (error: any) {
             console.error("Error in save task process:", error.message);
             addToast(`Error saving task: ${error.message}`, 'error');
+            if (!isNewTask) {
+                const taskId = (editingTask as Task).id;
+                locallyUpdatedTaskIds.current.delete(taskId);
+            }
             return false;
         }
     };
@@ -215,17 +228,23 @@ export const useAppActions = ({ session, setActionModal, notifyDataChange, t }: 
     }, [setActionModal, executeClearCancelledTasks, t]);
     
     const handleUpdateStatus = useCallback(async (task: Task, status: Task['status']): Promise<boolean> => {
+        locallyUpdatedTaskIds.current.add(task.id);
+        setTimeout(() => {
+            locallyUpdatedTaskIds.current.delete(task.id);
+        }, 5000);
+
         const { data, error } = await supabase.from('tasks').update({ status }).eq('id', task.id).select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').single();
         if (error) {
             console.error("Error updating task status:", error.message);
             addToast('Failed to update task status.', 'error');
+            locallyUpdatedTaskIds.current.delete(task.id);
             return false;
         } else {
             await logActivity('status_changed', { task_id: task.id, task_title: task.title, from: task.status, to: status });
             notifyDataChange({ type: 'update', payload: data });
             return true;
         }
-    }, [logActivity, notifyDataChange, addToast]);
+    }, [logActivity, notifyDataChange, addToast, locallyUpdatedTaskIds]);
 
     const handleStartTimer = useCallback(async (task: Task) => {
         if (!session || activeTimer) return;

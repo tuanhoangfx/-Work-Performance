@@ -197,6 +197,7 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
                         onDeleteTask={onDeleteTask}
                         onUpdateStatus={onUpdateStatus}
                         onClearCancelledTasks={onClearCancelledTasks}
+                        lastDataChange={lastDataChange}
                     />
                 ))}
             </div>

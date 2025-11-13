@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useSettings } from '../context/SettingsContext';
 
 export interface ActionModalProps {
@@ -28,12 +28,33 @@ const ActionModal: React.FC<ActionModalProps> = ({
 }) => {
   const { t } = useSettings();
 
-  if (!isOpen) return null;
+  const handleConfirm = useCallback(() => {
+    if (onConfirm) {
+      onConfirm();
+      onClose();
+    }
+  }, [onConfirm, onClose]);
 
-  const handleConfirm = () => {
-    onConfirm?.();
-    onClose();
-  };
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Chỉ kích hoạt khi nhấn 'Enter' nếu đó là một modal xác nhận đơn giản (không có children)
+      // và có một hành động xác nhận tồn tại. Điều này tránh xung đột với các modal có form.
+      if (event.key === 'Enter' && onConfirm && !children) {
+        event.preventDefault();
+        handleConfirm();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onConfirm, children, handleConfirm]);
+
+  if (!isOpen) return null;
 
   return (
     <div

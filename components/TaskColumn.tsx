@@ -8,6 +8,7 @@ import TaskCard from './TaskCard';
 import { TrashIcon } from './Icons';
 import VirtualItem from './common/VirtualItem';
 import { TaskCardSkeleton } from './Skeleton';
+import { DataChange } from '@/App';
 
 interface TaskColumnProps {
     status: Task['status'];
@@ -17,6 +18,7 @@ interface TaskColumnProps {
     tasks: Task[];
     sortConfig: SortConfig;
     dragOverStatus: Task['status'] | null;
+    lastDataChange: DataChange | null;
     onDrop: (status: Task['status']) => void;
     setDragOverStatus: (status: Task['status'] | null) => void;
     setDraggedTaskId: (taskId: number | null) => void;
@@ -35,6 +37,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
     tasks,
     sortConfig,
     dragOverStatus,
+    lastDataChange,
     onDrop,
     setDragOverStatus,
     setDraggedTaskId,
@@ -87,6 +90,7 @@ const TaskColumn: React.FC<TaskColumnProps> = ({
                             onDragStart={setDraggedTaskId}
                             assignee={task.assignee}
                             creator={task.creator}
+                            lastDataChange={lastDataChange}
                         />
                     </VirtualItem>
                 ))}

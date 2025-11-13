@@ -207,6 +207,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                         onDeleteTask={onDeleteTask}
                         onUpdateStatus={onUpdateStatus}
                         onClearCancelledTasks={onClearCancelledTasks}
+                        lastDataChange={lastDataChange}
                     />
                 ))}
             </div>
@@ -217,7 +218,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
          return <div className="text-center p-8">{t.signInToManageTasks}</div>;
     }
     
-    const projectsForFilter = userProjects.map(p => p.projects);
+    const projectsForFilter = userProjects.map(p => p.projects).filter((p): p is Project => p !== null);
     
     return (
         <div className="w-full animate-fadeInUp space-y-6">

@@ -75,6 +75,8 @@ const TaskPreviewPopover: React.FC<TaskPreviewPopoverProps> = ({ isOpen, onClose
                                     onDragStart={() => {}}
                                     assignee={task.assignee}
                                     creator={task.creator}
+                                    // FIX: Add missing lastDataChange prop, set to null as this component doesn't track it.
+                                    lastDataChange={null}
                                 />
                             ))}
                         </div>

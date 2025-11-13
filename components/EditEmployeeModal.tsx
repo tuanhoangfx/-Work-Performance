@@ -184,8 +184,9 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
             if (profileError) throw profileError;
             
             const { data: currentMemberships } = await supabase.from('project_members').select('project_id').eq('user_id', employee.id);
-            // FIX: Use Number() to safely cast project_id, which might be of an unknown type from the API, to a number.
-            const currentProjectIds = new Set(currentMemberships?.map(p => Number(p.project_id)) || []);
+            // FIX: Safely cast project_id to a number, as Supabase can return it as an unknown type from a partial select.
+            // FIX: Use a type assertion to cast `p.project_id` to `number`. This resolves the type error where Supabase infers it as `unknown`.
+            const currentProjectIds = new Set(currentMemberships?.map(p => p.project_id as number) || []);
             
             const toAdd = [...userProjectIds].filter(id => !currentProjectIds.has(id));
             const toRemove = [...currentProjectIds].filter(id => !userProjectIds.has(id));

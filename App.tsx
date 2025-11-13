@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { translations } from '@/translations';
@@ -197,6 +197,7 @@ const AppContent: React.FC = () => {
   const { addToast } = useToasts();
   const { t, language } = useSettings();
   
+  const locallyUpdatedTaskIds = useRef(new Set<number>());
   const [lastDataChange, setLastDataChange] = useState<DataChange | null>(null);
   const notifyDataChange = useCallback((change: Omit<DataChange, 'timestamp'>) => {
     setLastDataChange({ ...change, timestamp: Date.now() });
@@ -222,7 +223,8 @@ const AppContent: React.FC = () => {
       session,
       setActionModal: modals.action.setState,
       notifyDataChange: notifyDataChange,
-      t
+      t,
+      locallyUpdatedTaskIds,
   });
 
   const handleIdle = useCallback(() => {
@@ -330,6 +332,13 @@ const AppContent: React.FC = () => {
     const tasksChannel = supabase.channel('public:tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' },
         async (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const updatedTaskId = payload.new.id as number;
+            if (locallyUpdatedTaskIds.current.has(updatedTaskId)) {
+                locallyUpdatedTaskIds.current.delete(updatedTaskId);
+                return;
+            }
+          }
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const { data: task, error } = await supabase.from('tasks').select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))').eq('id', payload.new.id).single();
             if (error) { console.error('Error fetching task from realtime update:', error); return; }
