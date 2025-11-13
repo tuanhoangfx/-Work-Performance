@@ -312,7 +312,15 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
                                             <tbody>
                                             {userProjectDetails.map(project => (
                                                 <tr key={project.id} className="border-t dark:border-gray-700">
-                                                    <td className="px-4 py-2 font-semibold">{project.name}</td>
+                                                    <td className="px-4 py-2 font-semibold">
+                                                        <div className="flex items-center gap-2">
+                                                            <span 
+                                                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                                                style={{ backgroundColor: project.color || PROJECT_COLORS[project.id % PROJECT_COLORS.length] }}>
+                                                            </span>
+                                                            <span>{project.name}</span>
+                                                        </div>
+                                                    </td>
                                                     <td className="px-4 py-2 text-gray-500 dark:text-gray-400 tabular-nums">{new Date(project.joined_at).toLocaleDateString(language)}</td>
                                                     <td className="px-4 py-2 text-center">{project.task_count}</td>
                                                     <td className="px-4 py-2 text-right">
