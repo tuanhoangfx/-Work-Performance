@@ -136,7 +136,7 @@ const DashboardManager: React.FC<{
         return <div className="text-center p-8 text-xl text-red-500">Could not load user profile. Please try refreshing.</div>;
     }
 
-    const isMyTasksVisible = (profile.role !== 'admin') || (profile.role === 'admin' && adminView === 'myTasks');
+    const isMyTasksVisible = (profile.role === 'employee') || ((profile.role === 'admin' || profile.role === 'manager') && adminView === 'myTasks');
 
     return (
         <>
@@ -158,32 +158,33 @@ const DashboardManager: React.FC<{
             </div>
 
             {profile.role === 'admin' && (
-                <>
-                    <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
-                        <AdminTaskDashboard
-                            lastDataChange={lastDataChange}
-                            allUsers={allUsers}
-                            onEditTask={modals.task.open}
-                            onDeleteTask={taskActions.handleDeleteTask}
-                            onClearCancelledTasks={taskActions.handleClearCancelledTasks}
-                            onUpdateStatus={taskActions.handleUpdateStatus}
-                            onStartTimer={timerActions.handleStartTimer}
-                            onStopTimer={timerActions.handleStopTimer}
-                            activeTimer={activeTimer}
-                            setTaskCounts={setTaskCounts}
-                        />
-                    </div>
-                    <div className={adminView === 'management' ? 'block' : 'hidden'}>
-                        <ManagementDashboard
-                            allUsers={allUsers}
-                            onUsersChange={getAllUsers}
-                            currentUserProfile={profile}
-                            onEditUser={onEditUser}
-                            onEditProject={onEditProject}
-                            lastDataChange={lastDataChange}
-                        />
-                    </div>
-                </>
+                <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
+                    <AdminTaskDashboard
+                        lastDataChange={lastDataChange}
+                        allUsers={allUsers}
+                        onEditTask={modals.task.open}
+                        onDeleteTask={taskActions.handleDeleteTask}
+                        onClearCancelledTasks={taskActions.handleClearCancelledTasks}
+                        onUpdateStatus={taskActions.handleUpdateStatus}
+                        onStartTimer={timerActions.handleStartTimer}
+                        onStopTimer={timerActions.handleStopTimer}
+                        activeTimer={activeTimer}
+                        setTaskCounts={setTaskCounts}
+                    />
+                </div>
+            )}
+            
+            {(profile.role === 'admin' || profile.role === 'manager') && (
+                <div className={adminView === 'management' ? 'block' : 'hidden'}>
+                    <ManagementDashboard
+                        allUsers={allUsers}
+                        onUsersChange={getAllUsers}
+                        currentUserProfile={profile}
+                        onEditUser={onEditUser}
+                        onEditProject={onEditProject}
+                        lastDataChange={lastDataChange}
+                    />
+                </div>
             )}
         </>
     );

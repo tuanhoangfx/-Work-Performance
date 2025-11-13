@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({ session, profile, handleSignOut, onSign
 
         {/* Left Side (half width on mobile, auto on desktop) */}
         <div className="w-1/2 md:flex-1 flex justify-start order-2 md:order-1">
-            {session && profile?.role === 'admin' && <AdminNav activeView={adminView} setView={setAdminView} />}
+            {session && (profile?.role === 'admin' || profile?.role === 'manager') && <AdminNav activeView={adminView} setView={setAdminView} profile={profile} />}
         </div>
         
         {/* Right Side (half width on mobile, auto on desktop) */}

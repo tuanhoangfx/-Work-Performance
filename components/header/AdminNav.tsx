@@ -1,15 +1,18 @@
 
+
 import React from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { BriefcaseIcon, UsersIcon, ClipboardListIcon, SettingsIcon } from '../Icons';
 import { AdminView } from '../../App';
+import { Profile } from '../../types';
 
 interface AdminNavProps {
     activeView: AdminView;
     setView: (view: AdminView) => void;
+    profile: Profile | null;
 }
 
-const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView }) => {
+const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView, profile }) => {
     const { t } = useSettings();
 
     const navItems = [
@@ -18,9 +21,13 @@ const AdminNav: React.FC<AdminNavProps> = ({ activeView, setView }) => {
         { view: 'management' as AdminView, label: t.management, icon: SettingsIcon },
     ];
 
+    const availableNavItems = !profile ? [] : profile.role === 'admin' 
+        ? navItems 
+        : navItems.filter(item => item.view !== 'taskDashboard');
+
     return (
         <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-0.5">
-            {navItems.map(item => (
+            {availableNavItems.map(item => (
                 <button
                     key={item.view}
                     onClick={() => setView(item.view)}

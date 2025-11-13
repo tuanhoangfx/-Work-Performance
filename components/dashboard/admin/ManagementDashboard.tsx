@@ -27,6 +27,11 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
     const [projects, setProjects] = useLocalStorage<Project[]>('admin_projects_with_counts', []);
     const [loadingProjects, setLoadingProjects] = useState(projects.length === 0);
 
+    useEffect(() => {
+        if (props.currentUserProfile?.role === 'manager' && view === 'projects') {
+            setView('users');
+        }
+    }, [props.currentUserProfile, view]);
 
     const fetchMemberships = useCallback(async () => {
         const { data, error } = await supabase
@@ -80,9 +85,11 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
                     <button onClick={() => setView('users')} className={`px-4 py-1.5 text-sm font-semibold rounded-full flex items-center gap-2 transition-all ${view === 'users' ? 'bg-white dark:bg-gray-800 shadow text-[var(--accent-color)]' : 'text-gray-600 dark:text-gray-400'}`}>
                         <UsersIcon size={16} /> {t.userManagement}
                     </button>
-                    <button onClick={() => setView('projects')} className={`px-4 py-1.5 text-sm font-semibold rounded-full flex items-center gap-2 transition-all ${view === 'projects' ? 'bg-white dark:bg-gray-800 shadow text-[var(--accent-color)]' : 'text-gray-600 dark:text-gray-400'}`}>
-                        <ProjectIcon size={16} /> {t.projectManagement}
-                    </button>
+                    {props.currentUserProfile?.role === 'admin' && (
+                        <button onClick={() => setView('projects')} className={`px-4 py-1.5 text-sm font-semibold rounded-full flex items-center gap-2 transition-all ${view === 'projects' ? 'bg-white dark:bg-gray-800 shadow text-[var(--accent-color)]' : 'text-gray-600 dark:text-gray-400'}`}>
+                            <ProjectIcon size={16} /> {t.projectManagement}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -95,12 +102,14 @@ const ManagementDashboard: React.FC<ManagementDashboardProps> = (props) => {
                     projectMemberships={projectMemberships}
                 />
             ) : (
-                <ProjectManagementDashboard
-                    onEditProject={props.onEditProject}
-                    projects={projects}
-                    loadingProjects={loadingProjects}
-                    onProjectsChange={fetchProjects}
-                />
+                props.currentUserProfile?.role === 'admin' && (
+                    <ProjectManagementDashboard
+                        onEditProject={props.onEditProject}
+                        projects={projects}
+                        loadingProjects={loadingProjects}
+                        onProjectsChange={fetchProjects}
+                    />
+                )
             )}
         </div>
     );

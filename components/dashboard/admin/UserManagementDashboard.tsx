@@ -188,7 +188,9 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
                                         {canPerformActionOnUser(user) && (
                                             <>
                                                 <button onClick={() => onEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}><EditIcon size={14} /></button>
-                                                <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}><TrashIcon size={14} /></button>
+                                                {currentUserProfile?.role === 'admin' && (
+                                                    <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}><TrashIcon size={14} /></button>
+                                                )}
                                             </>
                                         )}
                                     </td>
