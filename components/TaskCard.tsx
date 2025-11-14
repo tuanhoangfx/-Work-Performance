@@ -168,8 +168,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
                         ${copied
                             ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--accent-color)] dark:hover:text-[var(--accent-color-dark)]'
-                        }`
-                    }
+                        }`}
                     >
                         {copied ? (
                             <span className="flex items-center gap-1">
@@ -199,13 +198,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             </div>
             
             {/* Row 2: Title */}
-            <h4 className={`font-bold text-gray-800 dark:text-gray-200 break-words ${isCancelled ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+            <h4 className={`font-bold text-gray-800 dark:text-gray-200 break-words ${
+                isCancelled ? 'line-through text-gray-500 dark:text-gray-400' :
+                isDone ? 'text-gray-500 dark:text-gray-400' : ''
+            }`}>
                 {task.title}
             </h4>
 
             {/* Row 3: Description */}
             {task.description && (
-                <p className={`text-sm text-gray-600 dark:text-gray-400 break-words ${isCancelled ? 'line-through' : ''}`}>{task.description}</p>
+                <p className={`text-sm text-gray-600 dark:text-gray-400 break-words ${
+                    isCancelled ? 'line-through text-gray-500 dark:text-gray-400' : 
+                    isDone ? 'text-gray-500 dark:text-gray-400' : ''
+                }`}>{task.description}</p>
             )}
 
             {/* Row 4: Priority, Project (left) | Comments, Attachments, Assignee (right) */}
