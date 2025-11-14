@@ -186,7 +186,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
             const { data: currentMemberships } = await supabase.from('project_members').select('project_id').eq('user_id', employee.id);
             // FIX: Safely cast project_id to a number, as Supabase can return it as an unknown type from a partial select.
             // FIX: Use a type assertion to cast `p.project_id` to `number`. This resolves the type error where Supabase infers it as `unknown`.
-            const currentProjectIds = new Set(currentMemberships?.map(p => p.project_id as number) || []);
+            // FIX: Explicitly convert project_id to a number to handle potential 'unknown' type from Supabase.
+            const currentProjectIds = new Set(currentMemberships?.map(p => Number(p.project_id as any)) || []);
             
             const toAdd = [...userProjectIds].filter(id => !currentProjectIds.has(id));
             const toRemove = [...currentProjectIds].filter(id => !userProjectIds.has(id));
@@ -242,7 +243,6 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
                             <XIcon size={24} />
                         </button>
                         <h2 id="edit-employee-modal-title" className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t.editEmployeeProfile}</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{employee.id}</p>
                     </div>
                     <div className="overflow-y-auto px-6 space-y-6">
                          <div>
