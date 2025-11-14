@@ -208,8 +208,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
             {/* Row 3: Description */}
             {task.description && (
                 <p className={`text-sm text-gray-600 dark:text-gray-400 break-words ${
-                    isCancelled ? 'line-through text-gray-500 dark:text-gray-400' : 
-                    isDone ? 'text-gray-500 dark:text-gray-400' : ''
+                    (isCancelled || isDone) ? 'text-gray-500 dark:text-gray-400' : ''
                 }`}>{task.description}</p>
             )}
 

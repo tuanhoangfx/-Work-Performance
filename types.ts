@@ -288,8 +288,7 @@ export type Translation = {
   today: string;
   thisWeek: string;
   thisMonth: string;
-  last7Days: string;
-  last30Days: string;
+  lastWeek: string;
   avgCompletionTime: string;
   allTasksBoard: string;
   customMonth: string;

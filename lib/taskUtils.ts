@@ -1,6 +1,6 @@
 import { Task } from '../types';
 
-export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at' | 'status' | 'compound_status_priority';
+export type SortField = 'priority' | 'created_at' | 'due_date' | 'updated_at' | 'status' | 'compound_status_priority' | 'compound_todo_default' | 'compound_inprogress_default';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {
@@ -14,10 +14,31 @@ const statusOrder: { [key in Task['status']]: number } = { todo: 4, inprogress: 
 export const sortTasks = (tasks: Task[], config: SortConfig): Task[] => {
   const sorted = [...tasks];
   sorted.sort((a, b) => {
-    const { field, direction } = config;
+    let { field, direction } = config;
     const dir = direction === 'asc' ? 1 : -1;
 
     let compareResult = 0;
+
+    if (field === 'compound_todo_default') {
+        // 1. Priority DESC
+        compareResult = priorityOrder[b.priority] - priorityOrder[a.priority];
+        if (compareResult !== 0) return compareResult;
+        // 2. Created At DESC (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+
+    if (field === 'compound_inprogress_default') {
+        // 1. Priority DESC
+        compareResult = priorityOrder[b.priority] - priorityOrder[a.priority];
+        if (compareResult !== 0) return compareResult;
+        // 2. Due Date ASC (nearest first, nulls last)
+        const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+        const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+        compareResult = dateA - dateB;
+        if (compareResult !== 0) return compareResult;
+        // 3. Created At DESC (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
 
     if (field === 'compound_status_priority') {
       // Primary sort: status (desc)

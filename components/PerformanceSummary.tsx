@@ -7,7 +7,7 @@ import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon, XCircleIcon, ClockIcon
 import StatCard from '@/components/performance-summary/StatCard';
 
 // FIX: Define and export the TimeRange type to resolve import errors.
-export type TimeRange = 'today' | 'thisWeek' | 'thisMonth' | 'last7' | 'last30' | 'customMonth' | 'customRange';
+export type TimeRange = 'today' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'customMonth' | 'customRange';
 
 interface PerformanceSummaryProps {
   title: string;

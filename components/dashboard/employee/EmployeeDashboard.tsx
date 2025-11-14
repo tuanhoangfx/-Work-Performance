@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { supabase } from '../../../lib/supabase';
@@ -39,8 +41,8 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
     const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [], projectIds: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
-        todo: { field: 'priority', direction: 'desc' },
-        inprogress: { field: 'priority', direction: 'desc' },
+        todo: { field: 'compound_todo_default', direction: 'desc' },
+        inprogress: { field: 'compound_inprogress_default', direction: 'desc' },
         done: { field: 'updated_at', direction: 'desc' },
         cancelled: { field: 'updated_at', direction: 'desc' },
     });
@@ -73,7 +75,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
     
     const tasks_safe = tasks || [];
 
-    const { tasksForSummaryAndChart } = useMemo(() => {
+    const timeFilteredTasks = useMemo(() => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date;
@@ -99,27 +101,25 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
                 endDate = todayEnd;
                 break;
-            case 'last7':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 6);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
-                break;
-            case 'last30':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 29);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
+            case 'lastWeek':
+                const lastWeekStart = new Date(todayStart);
+                lastWeekStart.setDate(todayStart.getDate() - todayStart.getDay() - 7);
+                startDate = lastWeekStart;
+                
+                const lastWeekEnd = new Date(lastWeekStart);
+                lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                lastWeekEnd.setHours(23, 59, 59, 999);
+                endDate = lastWeekEnd;
                 break;
             case 'customMonth':
-                if (!customMonth) return { tasksForSummaryAndChart: tasks_safe };
+                if (!customMonth) return tasks_safe;
                 const [year, month] = customMonth.split('-').map(Number);
                 startDate = new Date(year, month - 1, 1);
                 endDate = new Date(year, month, 0);
                 endDate.setHours(23, 59, 59, 999);
                 break;
             case 'customRange':
-                if (!customStartDate) return { tasksForSummaryAndChart: tasks_safe };
+                if (!customStartDate) return tasks_safe;
                 startDate = new Date(customStartDate);
                 startDate.setHours(0, 0, 0, 0);
                 endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
@@ -130,15 +130,14 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
                 endDate = todayEnd;
         }
 
-        const filtered = tasks_safe.filter(task => {
+        return tasks_safe.filter(task => {
             const taskDate = new Date(task.created_at);
             return taskDate >= startDate && taskDate <= endDate;
         });
-        return { tasksForSummaryAndChart: filtered };
     }, [tasks_safe, timeRange, customMonth, customStartDate, customEndDate]);
 
 
-    const filteredTasksForBoard = useTaskFilter(tasks_safe, filters, timezone);
+    const filteredTasksForBoard = useTaskFilter(timeFilteredTasks, filters, timezone);
     
     const handleDrop = (status: Task['status']) => {
         if (draggedTaskId === null) return;
@@ -241,7 +240,7 @@ const EmployeeDashboard: React.FC<TaskDashboardProps> = ({ session, lastDataChan
 
             <PerformanceSummary
                 title={t.performanceSummary}
-                tasks={tasksForSummaryAndChart}
+                tasks={timeFilteredTasks}
              />
             
             {loading && tasks_safe.length === 0 ? (

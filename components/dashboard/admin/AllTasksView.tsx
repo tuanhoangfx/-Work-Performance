@@ -34,8 +34,8 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ profile, lastDataChange, al
     const [dragOverStatus, setDragOverStatus] = useState<Task['status'] | null>(null);
     const [filters, setFilters] = useState<Filters>({ searchTerm: '', creatorIds: [], priorities: [], dueDates: [], projectIds: [] });
     const [sortConfigs, setSortConfigs] = useState<{ [key in Task['status']]: SortConfig }>({
-        todo: { field: 'priority', direction: 'desc' },
-        inprogress: { field: 'priority', direction: 'desc' },
+        todo: { field: 'compound_todo_default', direction: 'desc' },
+        inprogress: { field: 'compound_inprogress_default', direction: 'desc' },
         done: { field: 'updated_at', direction: 'desc' },
         cancelled: { field: 'updated_at', direction: 'desc' },
     });
@@ -78,7 +78,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ profile, lastDataChange, al
         return allTasks_safe.filter(task => selectedUserIds.includes(task.user_id));
     }, [allTasks_safe, selectedUserIds]);
 
-    const { tasksForSummaryAndChart } = useMemo(() => {
+    const tasksForSummaryAndChart = useMemo(() => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date;
@@ -104,27 +104,25 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ profile, lastDataChange, al
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
                 endDate = todayEnd;
                 break;
-            case 'last7':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 6);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
-                break;
-            case 'last30':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 29);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
+            case 'lastWeek':
+                const lastWeekStart = new Date(todayStart);
+                lastWeekStart.setDate(todayStart.getDate() - todayStart.getDay() - 7);
+                startDate = lastWeekStart;
+                
+                const lastWeekEnd = new Date(lastWeekStart);
+                lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                lastWeekEnd.setHours(23, 59, 59, 999);
+                endDate = lastWeekEnd;
                 break;
             case 'customMonth':
-                if (!customMonth) return { tasksForSummaryAndChart: filteredTasksByAssignee };
+                if (!customMonth) return filteredTasksByAssignee;
                 const [year, month] = customMonth.split('-').map(Number);
                 startDate = new Date(year, month - 1, 1);
                 endDate = new Date(year, month, 0);
                 endDate.setHours(23, 59, 59, 999);
                 break;
             case 'customRange':
-                if (!customStartDate) return { tasksForSummaryAndChart: filteredTasksByAssignee };
+                if (!customStartDate) return filteredTasksByAssignee;
                 startDate = new Date(customStartDate);
                 startDate.setHours(0, 0, 0, 0);
                 endDate = customEndDate ? new Date(customEndDate) : new Date(customStartDate);
@@ -135,15 +133,14 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ profile, lastDataChange, al
                 endDate = todayEnd;
         }
 
-        const filtered = filteredTasksByAssignee.filter(task => {
+        return filteredTasksByAssignee.filter(task => {
             const taskDate = new Date(task.created_at);
             return taskDate >= startDate && taskDate <= endDate;
         });
-        return { tasksForSummaryAndChart: filtered };
     }, [filteredTasksByAssignee, timeRange, customMonth, customStartDate, customEndDate]);
 
 
-    const filteredTasksForBoard = useTaskFilter(filteredTasksByAssignee, filters, timezone);
+    const filteredTasksForBoard = useTaskFilter(tasksForSummaryAndChart, filters, timezone);
 
 
     const handleDrop = (status: Task['status']) => {

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
@@ -89,17 +90,15 @@ const EmployeeTaskView: React.FC<EmployeeTaskViewProps> = ({ employee, lastDataC
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
                 endDate = todayEnd;
                 break;
-            case 'last7':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 6);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
-                break;
-            case 'last30':
-                startDate = new Date();
-                startDate.setDate(todayStart.getDate() - 29);
-                startDate.setHours(0,0,0,0);
-                endDate = todayEnd;
+            case 'lastWeek':
+                const lastWeekStart = new Date(todayStart);
+                lastWeekStart.setDate(todayStart.getDate() - todayStart.getDay() - 7);
+                startDate = lastWeekStart;
+                
+                const lastWeekEnd = new Date(lastWeekStart);
+                lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+                lastWeekEnd.setHours(23, 59, 59, 999);
+                endDate = lastWeekEnd;
                 break;
             case 'customMonth':
                 if (!customMonth) return { tasksForSummaryAndChart: tasks_safe };

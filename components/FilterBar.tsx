@@ -59,9 +59,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
   const timeRangeOptions = useMemo(() => [
     { value: 'today' as TimeRange, label: t.today },
     { value: 'thisWeek' as TimeRange, label: t.thisWeek },
+    { value: 'lastWeek' as TimeRange, label: t.lastWeek },
     { value: 'thisMonth' as TimeRange, label: t.thisMonth },
-    { value: 'last7' as TimeRange, label: t.last7Days },
-    { value: 'last30' as TimeRange, label: t.last30Days },
     { value: 'customMonth' as TimeRange, label: t.customMonth },
     { value: 'customRange' as TimeRange, label: t.customRange },
   ], [t]);
