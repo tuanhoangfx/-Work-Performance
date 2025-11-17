@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/context/SettingsContext';
-import { XIcon, SpinnerIcon, SearchIcon } from '@/components/Icons';
+import { XIcon, SpinnerIcon, SearchIcon, CheckIcon } from '@/components/Icons';
 import type { ActivityLog } from '@/types';
 import { formatAbsoluteDateTime } from '@/lib/taskUtils';
 import Avatar from '@/components/common/Avatar';
 import VirtualItem from '@/components/common/VirtualItem';
 import { ActivityLogItemSkeleton } from '@/components/Skeleton';
 import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
+import CopyIdButton from '@/components/common/CopyIdButton';
 
 interface ActivityLogModalProps {
   isOpen: boolean;
@@ -139,7 +140,6 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
         return `${selectedCount} Actions`;
     };
 
-
     if (!isOpen) return null;
 
     return (
@@ -212,24 +212,26 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                         <p className="text-center text-gray-500 dark:text-gray-400 py-10">{t.noActivity}</p>
                     ) : (
                         <ul className="space-y-1 p-4">
-                            {filteredLogs.map(log => (
+                            {filteredLogs.map(log => {
+                                const message = formatLogMessage(log);
+                                
+                                return (
                                 <VirtualItem key={log.id} rootRef={scrollContainerRef} placeholder={<ActivityLogItemSkeleton />}>
                                     <li className="flex items-start gap-3 p-1">
                                         <div className="flex-shrink-0 mt-0.5">
                                             {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={28} />}
                                         </div>
                                         <div className="flex-grow">
-                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug"
-                                                dangerouslySetInnerHTML={{ __html: formatLogMessage(log)
-                                                    .replace(/<strong>/g, '<strong class="font-semibold">')
-                                                    .replace(/"(.*?)"/g, `<strong class="font-semibold text-[var(--accent-color)] dark:text-[var(--accent-color-dark)]">"$1"</strong>`)
-                                                }}
-                                            />
+                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
+                                               <span>{message}</span>
+                                                {log.task_id && <CopyIdButton id={log.task_id} isInline />}
+                                            </p>
                                             <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(log.created_at, language, timezone)}</time>
                                         </div>
                                     </li>
                                 </VirtualItem>
-                            ))}
+                                );
+                            })}
                         </ul>
                     )}
                 </div>

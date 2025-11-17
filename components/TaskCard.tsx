@@ -7,6 +7,7 @@ import Avatar from '@/components/common/Avatar';
 import { PROJECT_COLORS } from '@/constants';
 import { getTodayDateString } from '@/lib/taskUtils';
 import { DataChange } from '@/App';
+import CopyIdButton from '@/components/common/CopyIdButton';
 
 interface TaskCardProps {
     task: Task;
@@ -62,7 +63,6 @@ const formatShortDate = (dateString: string) => {
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateStatus, onDragStart, assignee, creator, lastDataChange }) => {
     const { t, language, timezone } = useSettings();
     const [duration, setDuration] = useState(0);
-    const [copied, setCopied] = useState(false);
     const [isHighlighted, setIsHighlighted] = useState(false);
 
     useEffect(() => {
@@ -140,13 +140,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
         e.stopPropagation();
         onDelete(task);
     };
-
-    const handleCopyId = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(`#${task.id.toString().padStart(4, '0')}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-    };
     
     const project = task.projects;
     const projectName = project ? project.name : t.personalProject;
@@ -160,26 +153,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
         >
             {/* Row 1: ID, Actions */}
             <div className="flex justify-between items-center gap-2">
-                <div className="relative flex-shrink-0">
-                    <button
-                        onClick={handleCopyId}
-                        title={t.copyTaskId}
-                        className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-full transition-all duration-300
-                        ${copied
-                            ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-[var(--accent-color)] dark:hover:text-[var(--accent-color-dark)]'
-                        }`}
-                    >
-                        {copied ? (
-                            <span className="flex items-center gap-1">
-                                <CheckIcon size={12} />
-                                Copied!
-                            </span>
-                        ) : (
-                            `#${task.id.toString().padStart(4, '0')}`
-                        )}
-                    </button>
-                </div>
+                <CopyIdButton id={task.id} />
                 
                 <div 
                     className="flex items-center gap-0.5 flex-shrink-0"

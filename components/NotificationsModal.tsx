@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/context/SettingsContext';
-import { XIcon, SpinnerIcon, BellIcon, SearchIcon } from '@/components/Icons';
+import { XIcon, SpinnerIcon, BellIcon, SearchIcon, CheckIcon } from '@/components/Icons';
 import type { Notification } from '@/types';
 import { formatAbsoluteDateTime } from '@/lib/taskUtils';
 import Avatar from '@/components/common/Avatar';
 import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
+import CopyIdButton from '@/components/common/CopyIdButton';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -25,12 +26,13 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
 
     const formatNotificationMessage = (notification: Notification) => {
         const actorName = notification.profiles?.full_name || 'Someone';
-        
+        const taskTitle = notification.data.task_title || 'a task';
+
         switch (notification.type) {
             case 'new_task_assigned':
-                 return t.notifications_new_task(actorName, notification.data.task_title || 'a task');
+                 return t.notifications_new_task(actorName, taskTitle);
             case 'new_comment':
-                return t.notifications_new_comment(actorName, notification.data.task_title || 'a task');
+                return t.notifications_new_comment(actorName, taskTitle);
             case 'new_project_created':
                 return t.notifications_new_project(actorName, notification.data.project_name || 'a new project');
             case 'new_user_registered':
@@ -254,7 +256,20 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                         </div>
                     ) : (
                         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {filteredNotifications.map(notification => (
+                            {filteredNotifications.map(notification => {
+                                const message = formatNotificationMessage(notification);
+                                const parts = message.split(/<strong>(.*?)<\/strong>/g);
+                                const isStrongFirst = message.startsWith('<strong>');
+
+                                const content = parts.map((part, index) => {
+                                    const isStrongPart = (isStrongFirst && index % 2 === 1) || (!isStrongFirst && index % 2 === 1);
+                                    if (isStrongPart) {
+                                        return <strong key={index} className="font-semibold text-gray-900 dark:text-gray-100">{part}</strong>;
+                                    }
+                                    return <span key={index}>{part}</span>;
+                                });
+
+                                return (
                                 <li 
                                     key={notification.id} 
                                     className={`p-3 flex items-start gap-3 transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 ${!notification.is_read ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}
@@ -264,18 +279,18 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
                                         {notification.profiles && <Avatar user={notification.profiles} title={notification.profiles.full_name || ''} size={32} />}
                                     </div>
                                     <div className="flex-grow">
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug"
-                                            dangerouslySetInnerHTML={{ __html: formatNotificationMessage(notification)
-                                                .replace(/<strong>/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">')
-                                            }}
-                                        />
+                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
+                                           {content}
+                                           {notification.data.task_id && <CopyIdButton id={notification.data.task_id} isInline />}
+                                        </p>
                                         <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(notification.created_at, language, timezone)}</time>
                                     </div>
                                     {!notification.is_read && (
                                         <div className="w-2.5 h-2.5 bg-sky-500 rounded-full flex-shrink-0 mt-1" title="Unread"></div>
                                     )}
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
                     )}
                 </div>
