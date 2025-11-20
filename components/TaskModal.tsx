@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { XIcon, SpinnerIcon, SettingsIcon } from '@/components/Icons';
 import { useSettings } from '@/context/SettingsContext';
@@ -27,14 +26,16 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   const { t, defaultDueDateOffset, timezone, defaultPriority } = useSettings();
   const { addToast } = useToasts();
   
-  // State for form fields
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<Task['status']>('todo');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [dueDate, setDueDate] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
-  const [projectId, setProjectId] = useState('personal');
+  // Combined State for Form Data
+  const [formData, setFormData] = useState({
+      title: '',
+      description: '',
+      status: 'todo' as Task['status'],
+      priority: 'medium' as Task['priority'],
+      dueDate: '',
+      assigneeId: '',
+      projectId: 'personal'
+  });
 
   // State for attachments
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
@@ -75,39 +76,39 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         const currentTaskId = task && 'id' in task ? task.id : null;
         if (currentTaskId !== editingTaskId) {
             if (task && 'id' in task) { // Editing existing task
-                setTitle(task.title || '');
-                setDescription(task.description || '');
-                setStatus(task.status || 'todo');
-                setPriority(task.priority || 'medium');
-                setDueDate(task.due_date ? task.due_date.split('T')[0] : '');
+                setFormData({
+                    title: task.title || '',
+                    description: task.description || '',
+                    status: task.status || 'todo',
+                    priority: task.priority || 'medium',
+                    dueDate: task.due_date ? task.due_date.split('T')[0] : '',
+                    assigneeId: task.user_id || '',
+                    projectId: task.project_id?.toString() || 'personal'
+                });
                 setAttachments(task.task_attachments || []);
-                setAssigneeId(task.user_id || '');
-                setProjectId(task.project_id?.toString() || 'personal');
                 fetchComments(task.id);
                 setTempNewComments([]);
                 setOptimisticComments([]);
             } else { // New task
-                setTitle('');
-                setDescription('');
-                setStatus('todo');
-                setPriority(defaultPriority);
-                
                 const targetDate = new Date();
                 targetDate.setDate(targetDate.getDate() + defaultDueDateOffset);
                 const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
-                setDueDate(formatter.format(targetDate));
+                const latestProject = userProjects.length > 0 ? userProjects[0] : null;
+
+                setFormData({
+                    title: '',
+                    description: '',
+                    status: 'todo',
+                    priority: defaultPriority,
+                    dueDate: formatter.format(targetDate),
+                    assigneeId: task?.user_id || currentUser?.id || '',
+                    projectId: currentUser?.default_project_id?.toString() || latestProject?.project_id.toString() || 'personal'
+                });
                 
                 setAttachments([]);
                 setComments([]);
                 setTempNewComments([]);
                 setOptimisticComments([]);
-                setAssigneeId(task?.user_id || currentUser?.id || '');
-                const latestProject = userProjects.length > 0 ? userProjects[0] : null;
-                setProjectId(
-                    currentUser?.default_project_id?.toString() ||
-                    latestProject?.project_id.toString() ||
-                    'personal'
-                );
             }
             setNewFiles([]);
             setDeletedAttachmentIds([]);
@@ -125,12 +126,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
         if (!isOpen || !currentUser) return;
 
         const updateAssignableUsers = async () => {
-            if (projectId === 'personal') {
+            if (formData.projectId === 'personal') {
                 const self = allUsers.find(u => u.id === currentUser.id);
                 const assignable = self ? [self] : [];
                 setAssignableUsers(assignable);
-                if (assigneeId !== currentUser.id) {
-                    setAssigneeId(currentUser.id);
+                if (formData.assigneeId !== currentUser.id) {
+                    setFormData(prev => ({ ...prev, assigneeId: currentUser.id }));
                 }
                 return;
             }
@@ -143,7 +144,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
             const { data, error } = await supabase
                 .from('project_members')
                 .select('profiles!inner(*)')
-                .eq('project_id', parseInt(projectId, 10));
+                .eq('project_id', parseInt(formData.projectId, 10));
 
             if (error) {
                 console.error("Error fetching project members:", error);
@@ -153,22 +154,22 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
                 const members = data.map(item => item.profiles) as Profile[];
                 setAssignableUsers(members);
                 
-                const isCurrentAssigneeValid = members.some(m => m.id === assigneeId);
+                const isCurrentAssigneeValid = members.some(m => m.id === formData.assigneeId);
                 if (!isCurrentAssigneeValid) {
                     const isCurrentUserMember = members.some(m => m.id === currentUser.id);
-                    setAssigneeId(isCurrentUserMember ? currentUser.id : '');
+                    setFormData(prev => ({ ...prev, assigneeId: isCurrentUserMember ? currentUser.id : '' }));
                 }
             }
         };
 
         updateAssignableUsers();
-    }, [projectId, allUsers, currentUser, isOpen, addToast, assigneeId]);
+    }, [formData.projectId, allUsers, currentUser, isOpen, addToast, formData.assigneeId]);
 
 
   useEffect(() => {
-    if (validationError === 'title' && title.trim()) setValidationError(null);
-    if (validationError === 'assignee' && assigneeId) setValidationError(null);
-  }, [title, assigneeId, validationError]);
+    if (validationError === 'title' && formData.title.trim()) setValidationError(null);
+    if (validationError === 'assignee' && formData.assigneeId) setValidationError(null);
+  }, [formData.title, formData.assigneeId, validationError]);
 
   const handlePaste = useCallback((event: ClipboardEvent) => {
     const items = event.clipboardData?.files;
@@ -239,11 +240,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
   };
 
   const handleSaveClick = async () => {
-    if (!title.trim()) {
+    if (!formData.title.trim()) {
       setValidationError('title');
       return;
     }
-    if (!assigneeId) {
+    if (!formData.assigneeId) {
       setValidationError('assignee');
       return;
     }
@@ -251,13 +252,13 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
     setIsSaving(true);
     
     const taskData: Partial<Task> = {
-      title,
-      description,
-      status,
-      priority,
-      due_date: dueDate || null,
-      user_id: assigneeId,
-      project_id: projectId === 'personal' ? null : parseInt(projectId, 10),
+      title: formData.title,
+      description: formData.description,
+      status: formData.status,
+      priority: formData.priority,
+      due_date: formData.dueDate || null,
+      user_id: formData.assigneeId,
+      project_id: formData.projectId === 'personal' ? null : parseInt(formData.projectId, 10),
     };
 
     const newCommentContents = tempNewComments.map(c => c.content);
@@ -309,21 +310,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, task, al
 
         <div className="flex-grow overflow-y-auto">
             <div className="p-4 md:p-6">
-                <TaskStatusStepper currentStatus={status} onStatusChange={setStatus} />
+                <TaskStatusStepper currentStatus={formData.status} onStatusChange={(s) => setFormData(prev => ({...prev, status: s}))} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 md:px-6">
                 <div className="space-y-4">
                      <TaskDetailsForm
-                        taskData={{ title, description, priority, dueDate, assigneeId, projectId }}
-                        onFieldChange={(field, value) => {
-                            if (field === 'title') setTitle(value as string);
-                            if (field === 'description') setDescription(value as string);
-                            if (field === 'priority') setPriority(value as Task['priority']);
-                            if (field === 'dueDate') setDueDate(value as string);
-                            if (field === 'assigneeId') setAssigneeId(value as string);
-                            if (field === 'projectId') setProjectId(value as string);
-                        }}
+                        taskData={formData}
+                        onFieldChange={(field, value) => setFormData(prev => ({ ...prev, [field]: value }))}
                         allUsers={assignableUsers}
                         userProjects={projectsForSelect}
                         validationError={validationError}

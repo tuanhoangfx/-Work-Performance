@@ -58,6 +58,20 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
     useEffect(() => {
         let heartbeatInterval: number | undefined;
 
+        // Function to update the last active timestamp
+        const updateLastActive = async () => {
+            // Check network status to avoid errors if user is offline
+            if (!navigator.onLine || !session?.user) return;
+
+            const { error } = await supabase.from('profiles').update({
+                last_sign_in_at: new Date().toISOString()
+            }).eq('id', session.user.id);
+            
+            if (error) {
+                console.error("Failed to update last active timestamp:", error.message);
+            }
+        };
+
         if (session?.user) {
             if (!profile || profile.id !== session.user.id) {
                 getProfile(session.user);
@@ -66,25 +80,10 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
             }
             getAllUsers();
 
-            // Function to update the last active timestamp
-            const updateLastActive = async () => {
-                // Check network status to avoid errors if user is offline
-                if (!navigator.onLine) return;
-
-                const { error } = await supabase.from('profiles').update({
-                    last_sign_in_at: new Date().toISOString()
-                }).eq('id', session.user.id);
-                
-                if (error) {
-                    console.error("Failed to update last active timestamp:", error.message);
-                }
-            };
-
             // 1. Update immediately on mount/session start
             updateLastActive();
 
             // 2. Set up a heartbeat to update every 5 minutes (300,000 ms)
-            // This keeps the "last active" status fresh without manual refresh
             heartbeatInterval = window.setInterval(updateLastActive, 5 * 60 * 1000);
 
         } else {
@@ -93,10 +92,22 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
             setLoadingProfile(false);
             setAdminView('myTasks');
         }
+        
+        const handleFocus = () => {
+            if (session?.user && document.visibilityState === 'visible') {
+                getAllUsers();
+                updateLastActive();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('visibilitychange', handleFocus);
 
         // Cleanup interval on unmount or session change
         return () => {
             if (heartbeatInterval) clearInterval(heartbeatInterval);
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('visibilitychange', handleFocus);
         };
     }, [session, getProfile, getAllUsers, setAllUsers]);
 

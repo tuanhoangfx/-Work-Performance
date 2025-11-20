@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string; // should match user.id
   created_at?: string;
@@ -114,27 +115,6 @@ export interface Notification {
   is_read: boolean;
   profiles: Profile; // For actor info
 }
-
-
-// FIX: Add TimeEntry interface to resolve import errors in multiple components.
-export interface TimeEntry {
-  id: number;
-  user_id: string;
-  start_time: string;
-  end_time: string | null;
-  created_at: string;
-}
-
-// FIX: Add PerformanceReview interface to resolve import error in UpdatePerformanceModal.
-export interface PerformanceReview {
-  id: number;
-  user_id: string;
-  reviewer_id: string;
-  score: number; // 1-5
-  comments: string;
-  reviewDate: string;
-}
-
 
 export type Translation = {
   // Header

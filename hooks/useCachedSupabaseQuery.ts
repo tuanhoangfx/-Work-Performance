@@ -129,6 +129,23 @@ export function useCachedSupabaseQuery<T>({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastDataChange]);
 
+  // Refetch on window focus to ensure data freshness
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData(true);
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [fetchData]);
+
 
   return { data, loading, error };
 }

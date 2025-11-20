@@ -1,12 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 
 interface VirtualItemProps {
   children: React.ReactNode;
   placeholder: React.ReactNode;
   rootRef: React.RefObject<HTMLElement>;
+  minHeight?: number;
 }
 
-const VirtualItem: React.FC<VirtualItemProps> = ({ children, placeholder, rootRef }) => {
+const VirtualItem: React.FC<VirtualItemProps> = ({ children, placeholder, rootRef, minHeight = 100 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +49,7 @@ const VirtualItem: React.FC<VirtualItemProps> = ({ children, placeholder, rootRe
   }, [rootRef]);
 
   return (
-    <div ref={itemRef}>
+    <div ref={itemRef} style={{ minHeight: isVisible ? 'auto' : minHeight }}>
       {isVisible ? children : placeholder}
     </div>
   );

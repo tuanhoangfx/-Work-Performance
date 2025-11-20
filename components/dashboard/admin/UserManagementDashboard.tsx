@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToasts } from '../../../context/ToastContext';
@@ -9,6 +8,7 @@ import { useModalManager } from '../../../hooks/useModalManager';
 import Avatar from '../../common/Avatar';
 import { supabase } from '../../../lib/supabase';
 import { formatAbsoluteDateTime } from '../../../lib/taskUtils';
+import { usePermission } from '../../../hooks/usePermission';
 
 interface UserManagementDashboardProps {
     allUsers: Profile[];
@@ -54,6 +54,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
     const { modals } = useModalManager();
     const [userSearchTerm, setUserSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'full_name', direction: 'asc' });
+    const { can } = usePermission(currentUserProfile);
 
     const userProjectsMap = useMemo(() => {
         const map = new Map<string, Project[]>();
@@ -98,7 +99,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
     }, [allUsers, userSearchTerm, sortConfig, userProjectsMap]);
 
     const executeDeleteUser = async (user: Profile) => {
-        if (currentUserProfile?.role !== 'admin') {
+        if (!can('delete', 'user', user)) {
             addToast("You do not have permission to delete users.", "error");
             return;
         }
@@ -119,13 +120,6 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
         });
     };
     
-    const canPerformActionOnUser = (targetUser: Profile): boolean => {
-        if (!currentUserProfile) return false;
-        if (currentUserProfile.role === 'admin') return true;
-        if (currentUserProfile.role === 'manager' && targetUser.role === 'employee') return true;
-        return false;
-    };
-
     const RoleBadge: React.FC<{ role: Profile['role'] }> = ({ role }) => {
         const config = {
             admin: { label: t.admin, classes: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300' },
@@ -185,13 +179,11 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
                                         {user.last_sign_in_at ? formatAbsoluteDateTime(user.last_sign_in_at, language, timezone) : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 text-center space-x-2">
-                                        {canPerformActionOnUser(user) && (
-                                            <>
-                                                <button onClick={() => onEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}><EditIcon size={14} /></button>
-                                                {currentUserProfile?.role === 'admin' && (
-                                                    <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}><TrashIcon size={14} /></button>
-                                                )}
-                                            </>
+                                        {can('update', 'user', user) && (
+                                            <button onClick={() => onEditUser(user)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={t.editUser}><EditIcon size={14} /></button>
+                                        )}
+                                        {can('delete', 'user', user) && (
+                                            <button onClick={() => handleDeleteUser(user)} className="p-2 rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" title={t.deleteUser}><TrashIcon size={14} /></button>
                                         )}
                                     </td>
                                 </tr>
