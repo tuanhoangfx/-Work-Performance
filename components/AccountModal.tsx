@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { XIcon, UserIcon } from '@/components/Icons';
+import { XIcon, UserIcon, SpinnerIcon } from '@/components/Icons';
 import type { Session } from '@supabase/supabase-js';
 import { useSettings } from '@/context/SettingsContext';
 import { useToasts } from '@/context/ToastContext';
-import { ProjectMember } from '@/types';
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -15,17 +15,14 @@ interface AccountModalProps {
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session }) => {
     const { t } = useSettings();
     const { addToast } = useToasts();
-    const [activeTab, setActiveTab] = useState('profile');
     
-    const [profileLoading, setProfileLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [fullName, setFullName] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
     
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [passwordLoading, setPasswordLoading] = useState(false);
     const [passwordError, setPasswordError] = useState<string | null>(null);
 
 
@@ -33,7 +30,6 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
 
     const getProfile = useCallback(async () => {
         if (!session) return;
-        setProfileLoading(true);
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -49,19 +45,17 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             }
         } catch (error: any) {
             console.error('Error fetching profile:', error.message);
-        } finally {
-            setProfileLoading(false);
         }
     }, [session]);
 
     useEffect(() => {
         if (isOpen && session) {
             getProfile();
-            setActiveTab('profile');
             setPassword('');
             setConfirmPassword('');
             setAvatarFile(null);
             setPasswordError(null);
+            setLoading(false);
         }
     }, [isOpen, session, getProfile]);
     
@@ -72,16 +66,32 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
         }
     };
 
-    const handleProfileUpdate = async (e: React.FormEvent) => {
+    const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!session) return;
 
-        setProfileLoading(true);
-        setUploading(!!avatarFile);
-        
+        // Validation
+        setPasswordError(null);
+        if (password || confirmPassword) {
+             if (password !== confirmPassword) {
+                setPasswordError(t.passwordsDoNotMatch);
+                return;
+            }
+             if (password.length < 6) {
+                 setPasswordError("Password must be at least 6 characters");
+                 return;
+             }
+        }
+
+        setLoading(true);
+        const errors: string[] = [];
+        const successes: string[] = [];
+
         try {
+            // 1. Update Profile
             let newAvatarUrl = avatarUrl;
             
+            // Upload avatar if changed
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();
                 const filePath = `${session.user.id}/${Math.random()}.${fileExt}`;
@@ -101,40 +111,47 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             };
 
             const { error: profileError } = await supabase.from('profiles').upsert(updates);
-            if (profileError) throw profileError;
-            
-            await supabase.auth.updateUser({ data: { full_name: fullName, avatar_url: newAvatarUrl } });
-            
-            addToast(t.profileUpdated, 'success');
-            setAvatarFile(null);
+            if (profileError) {
+                errors.push(`Profile update failed: ${profileError.message}`);
+            } else {
+                 await supabase.auth.updateUser({ data: { full_name: fullName, avatar_url: newAvatarUrl } });
+                 successes.push(t.profileUpdated);
+            }
+
+            // 2. Update Password (if provided)
+            if (password) {
+                const { error: pwError } = await supabase.auth.updateUser({ password });
+                if (pwError) {
+                    errors.push(`Password update failed: ${pwError.message}`);
+                } else {
+                    successes.push(t.passwordUpdated);
+                }
+            }
+
         } catch (error: any) {
-            addToast(`Error updating profile: ${error.message}`, 'error');
-            console.error("Error updating profile:", error.message);
+            errors.push(error.message);
         } finally {
-            setProfileLoading(false);
-            setUploading(false);
+            setLoading(false);
+            
+            if (errors.length > 0) {
+                addToast(errors.join(', '), 'error');
+            } 
+            if (successes.length > 0) {
+                if (successes.length > 1) {
+                     addToast("Account updated successfully", 'success');
+                } else {
+                     addToast(successes[0], 'success');
+                }
+                
+                // Reset password fields on success
+                if (password && errors.length === 0) {
+                    setPassword('');
+                    setConfirmPassword('');
+                }
+                // Reset avatar file state so we don't re-upload unnecessarily next time
+                setAvatarFile(null);
+            }
         }
-    };
-
-    const handlePasswordUpdate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setPasswordError(null);
-        if (password !== confirmPassword) {
-            setPasswordError(t.passwordsDoNotMatch);
-            return;
-        }
-        setPasswordLoading(true);
-
-        const { error } = await supabase.auth.updateUser({ password });
-
-        if (error) {
-            setPasswordError(error.message);
-        } else {
-            addToast(t.passwordUpdated, 'success');
-            setPassword('');
-            setConfirmPassword('');
-        }
-        setPasswordLoading(false);
     };
 
     if (!isOpen) return null;
@@ -148,84 +165,103 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, session })
             aria-labelledby="account-modal-title"
         >
             <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fadeInUp max-h-[90vh] flex flex-col my-auto"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fadeInUp my-auto max-h-[90vh] flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="p-6 pb-0 relative flex-shrink-0">
-                    <button 
-                        onClick={onClose} 
-                        className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors z-10"
-                        aria-label={t.close}
-                    >
-                        <XIcon size={24} />
-                    </button>
-                    <h2 id="account-modal-title" className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t.accountSettings}</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{session?.user?.email}</p>
-
-                    <div className="border-b border-gray-200 dark:border-gray-700 mt-4">
-                        <nav className="-mb-px flex space-x-4" aria-label="Tabs">
-                            <button onClick={() => setActiveTab('profile')} className={`${activeTab === 'profile' ? 'border-[var(--accent-color)] text-[var(--accent-color)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>{t.profile}</button>
-                            <button onClick={() => setActiveTab('password')} className={`${activeTab === 'password' ? 'border-[var(--accent-color)] text-[var(--accent-color)]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>{t.password}</button>
-                        </nav>
+                <form onSubmit={handleUpdate} className="flex flex-col h-full">
+                    <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 relative">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                            aria-label={t.close}
+                        >
+                            <XIcon size={24} />
+                        </button>
+                        <h2 id="account-modal-title" className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t.accountSettings}</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">{session?.user?.email}</p>
                     </div>
-                </div>
 
-                <div className="overflow-y-auto p-6">
-                    {activeTab === 'profile' ? (
-                        <form onSubmit={handleProfileUpdate}>
-                            <h3 className="text-lg font-medium">{t.updateProfile}</h3>
-                            {profileLoading && !avatarFile ? (
-                                <div className="text-center py-10 text-gray-500 dark:text-gray-400">Loading profile...</div>
-                            ) : (
-                            <div className="mt-4 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.avatar}</label>
-                                    <div className="mt-2 flex items-center gap-4">
+                    <div className="overflow-y-auto p-6 space-y-8 flex-grow">
+                        {/* Profile Section */}
+                        <section>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                                {t.profile}
+                            </h3>
+                            
+                            <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
+                                <div className="flex-shrink-0 text-center">
+                                    <div className="relative group">
                                         {avatarUrl ? (
-                                            <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
+                                            <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover ring-4 ring-gray-100 dark:ring-gray-700" />
                                         ) : (
-                                            <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                                <UserIcon size={32} className="text-gray-400" />
+                                            <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center ring-4 ring-gray-100 dark:ring-gray-700">
+                                                <UserIcon size={40} className="text-gray-400" />
                                             </div>
                                         )}
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.uploadAvatar}</button>
-                                        <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/png, image/jpeg" className="hidden"/>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="absolute bottom-0 right-0 bg-[var(--accent-color)] text-white p-1.5 rounded-full shadow-lg hover:bg-[var(--accent-color-dark)] transition-colors"
+                                            title={t.uploadAvatar}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                        </button>
+                                    </div>
+                                    <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/png, image/jpeg" className="hidden"/>
+                                </div>
+                                
+                                <div className="flex-grow w-full space-y-4">
+                                    <div>
+                                        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.fullName}</label>
+                                        <input 
+                                            type="text" 
+                                            id="fullName" 
+                                            value={fullName} 
+                                            onChange={e => setFullName(e.target.value)} 
+                                            className="block w-full px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm transition-colors" 
+                                            placeholder="Enter your name"
+                                        />
                                     </div>
                                 </div>
-                                <div>
-                                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.fullName}</label>
-                                    <input type="text" id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
+                            </div>
+                        </section>
+
+                        <div className="border-t border-gray-200 dark:border-gray-700"></div>
+
+                        {/* Password Section */}
+                        <section>
+                             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                                {t.password}
+                            </h3>
+                            <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.newPassword}</label>
+                                        <input type="password" id="newPassword" value={password} onChange={e => setPassword(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" placeholder="Leave blank to keep current" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.confirmNewPassword}</label>
+                                        <input type="password" id="confirmPassword" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" placeholder="Confirm new password" />
+                                    </div>
                                 </div>
+                                {passwordError && <p className="mt-3 text-xs text-red-500 text-center animate-shake">{passwordError}</p>}
                             </div>
-                            )}
-                            <div className="mt-6 flex items-center justify-end">
-                                <button type="submit" disabled={profileLoading || uploading} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50">
-                                    {uploading ? t.uploading : (profileLoading ? t.updating : t.update)}
-                                </button>
-                            </div>
-                        </form>
-                    ) : (
-                        <form onSubmit={handlePasswordUpdate}>
-                            <h3 className="text-lg font-medium">{t.changePassword}</h3>
-                                <div className="mt-4 space-y-4">
-                                <div>
-                                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.newPassword}</label>
-                                    <input type="password" id="newPassword" value={password} onChange={e => setPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
-                                </div>
-                                <div>
-                                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.confirmNewPassword}</label>
-                                    <input type="password" id="confirmPassword" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] sm:text-sm" />
-                                </div>
-                            </div>
-                            {passwordError && <p className="mt-4 text-xs text-red-500 text-center animate-shake">{passwordError}</p>}
-                            <div className="mt-6 flex items-center justify-end">
-                                <button type="submit" disabled={passwordLoading} className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-full shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50">
-                                    {passwordLoading ? t.updating : t.update}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-                </div>
+                        </section>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-800/50 px-6 py-4 flex justify-end items-center space-x-3 rounded-b-2xl flex-shrink-0">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 shadow-sm transition-colors">{t.cancel}</button>
+                        <button 
+                            type="submit" 
+                            disabled={loading} 
+                            className="px-6 py-2 text-sm font-semibold text-white bg-gradient-to-r from-[var(--gradient-from)] to-[var(--gradient-to)] rounded-md shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-xl focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {loading && <SpinnerIcon size={16} className="animate-spin" />}
+                            {loading ? t.updating : t.update}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
