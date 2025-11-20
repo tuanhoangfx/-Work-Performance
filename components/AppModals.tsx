@@ -1,10 +1,12 @@
+
 import React, { lazy } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import type { Task, Profile, Project, Notification, ProjectMember, MemberDetails } from '@/types';
+import type { Task, Profile, Project, Notification, ProjectMember, MemberDetails, ActivityLog } from '@/types';
 import type { useModalManager } from '@/hooks/useModalManager';
 import type { useAppActions } from '@/hooks/useAppActions';
 import { useSettings } from '@/context/SettingsContext';
 import { useToasts } from '@/context/ToastContext';
+import { supabase } from '@/lib/supabase';
 
 const AuthModal = lazy(() => import('@/components/Auth'));
 const AccountModal = lazy(() => import('@/components/AccountModal'));
@@ -46,6 +48,36 @@ const AppModals: React.FC<AppModalsProps> = ({
 }) => {
     const { t } = useSettings();
     const { addToast } = useToasts();
+
+    const handleLogClick = async (log: ActivityLog) => {
+        if (!log.task_id) return;
+        
+        try {
+             const { data, error } = await supabase
+                .from('tasks')
+                .select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+                .eq('id', log.task_id)
+                .single();
+
+             if (error) {
+                 if(error.code === 'PGRST116') {
+                      addToast(t.taskNotFound, 'error');
+                 } else {
+                      console.error("Error fetching task for log:", error);
+                      addToast(`Error loading task: ${error.message}`, 'error');
+                 }
+                 return;
+             }
+
+             if (data) {
+                 modals.activityLog.close();
+                 modals.task.open(data as Task);
+             }
+        } catch (e: any) {
+            console.error(e);
+            addToast('An unexpected error occurred', 'error');
+        }
+    };
     
     return (
         <>
@@ -65,7 +97,11 @@ const AppModals: React.FC<AppModalsProps> = ({
               userProjects={userProjects}
               onOpenDefaults={modals.taskDefaults.open}
             />
-            <ActivityLogModal isOpen={modals.activityLog.isOpen} onClose={modals.activityLog.close} />
+            <ActivityLogModal 
+                isOpen={modals.activityLog.isOpen} 
+                onClose={modals.activityLog.close} 
+                onLogClick={handleLogClick}
+            />
             <NotificationsModal isOpen={modals.notifications.isOpen} onClose={modals.notifications.close} onNotificationClick={handleNotificationClick} setUnreadCount={setUnreadCount} />
             <ActionModal
               isOpen={modals.action.isOpen}

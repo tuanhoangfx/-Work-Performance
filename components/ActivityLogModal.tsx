@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/context/SettingsContext';
@@ -13,9 +14,10 @@ import CopyIdButton from '@/components/common/CopyIdButton';
 interface ActivityLogModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onLogClick: (log: ActivityLog) => void;
 }
 
-const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) => {
+const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose, onLogClick }) => {
     const { t, language, timezone } = useSettings();
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -211,15 +213,19 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose }) 
                     ) : filteredLogs.length === 0 ? (
                         <p className="text-center text-gray-500 dark:text-gray-400 py-10">{t.noActivity}</p>
                     ) : (
-                        <ul className="space-y-1 p-4">
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                             {filteredLogs.map(log => {
                                 const message = formatLogMessage(log);
+                                const isClickable = !!log.task_id;
                                 
                                 return (
                                 <VirtualItem key={log.id} rootRef={scrollContainerRef} placeholder={<ActivityLogItemSkeleton />}>
-                                    <li className="flex items-start gap-3 p-1">
+                                    <li 
+                                        className={`flex items-start gap-3 p-3 transition-colors ${isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
+                                        onClick={() => isClickable && onLogClick(log)}
+                                    >
                                         <div className="flex-shrink-0 mt-0.5">
-                                            {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={28} />}
+                                            {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={32} />}
                                         </div>
                                         <div className="flex-grow">
                                             <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
