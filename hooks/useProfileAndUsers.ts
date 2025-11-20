@@ -39,9 +39,14 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
             if (data) {
                 setProfile(data);
             } else {
+                // Insert new profile with email
                 const { data: newProfile, error: insertError } = await supabase
                     .from('profiles')
-                    .insert({ id: user.id, full_name: user.email })
+                    .insert({ 
+                        id: user.id, 
+                        full_name: user.user_metadata?.full_name || user.email,
+                        email: user.email
+                    })
                     .select().single();
 
                 if (insertError) throw insertError;

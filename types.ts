@@ -6,6 +6,7 @@ export interface Profile {
   last_sign_in_at?: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  email?: string | null; // Added email field
   role: 'admin' | 'manager' | 'employee';
   default_project_id?: number | null;
 }

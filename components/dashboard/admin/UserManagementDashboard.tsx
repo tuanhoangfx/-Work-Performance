@@ -70,8 +70,12 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
     }, [projectMemberships]);
     
     const sortedAndFilteredUsers = useMemo(() => {
+        const lowerCaseSearch = userSearchTerm.trim().toLowerCase();
         const filtered = userSearchTerm.trim()
-            ? allUsers.filter(user => (user.full_name || '').toLowerCase().includes(userSearchTerm.toLowerCase()))
+            ? allUsers.filter(user => 
+                (user.full_name || '').toLowerCase().includes(lowerCaseSearch) || 
+                (user.email || '').toLowerCase().includes(lowerCaseSearch)
+              )
             : allUsers;
         
         const roleOrder = { admin: 3, manager: 2, employee: 1 };
@@ -81,6 +85,8 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
             switch(sortConfig.key) {
                 case 'full_name':
                     return (a.full_name || '').localeCompare(b.full_name || '') * dir;
+                case 'email':
+                    return (a.email || '').localeCompare(b.email || '') * dir;
                 case 'role':
                     return ((roleOrder[a.role] || 0) - (roleOrder[b.role] || 0)) * dir;
                 case 'created_at':
@@ -133,7 +139,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
     return (
         <>
             <div className="relative mb-4">
-                <input id="user-management-search" type="text" placeholder={t.searchUsers} value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)}
+                <input id="user-management-search" type="text" placeholder={`${t.searchUsers} or email...`} value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)}
                     className="w-full sm:w-64 pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700/80 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon size={16} className="text-gray-400" /></div>
@@ -143,6 +149,7 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
                      <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <SortableHeader sortKey="full_name" currentSort={sortConfig} setSort={setSortConfig} className="text-left">{t.fullName}</SortableHeader>
+                            <SortableHeader sortKey="email" currentSort={sortConfig} setSort={setSortConfig} className="text-left">{t.emailLabel}</SortableHeader>
                             <SortableHeader sortKey="role" currentSort={sortConfig} setSort={setSortConfig}>{t.role}</SortableHeader>
                             <SortableHeader sortKey="projects" currentSort={sortConfig} setSort={setSortConfig}>Dự án</SortableHeader>
                             <SortableHeader sortKey="created_at" currentSort={sortConfig} setSort={setSortConfig}>Ngày tạo</SortableHeader>
@@ -157,6 +164,9 @@ const UserManagementDashboard: React.FC<UserManagementDashboardProps> = ({ allUs
                                 <tr key={user.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/20">
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                         <div className="flex items-center gap-3"><Avatar user={user} title={user.full_name || ''} size={32} /><span>{user.full_name}</span></div>
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
+                                        {user.email || <span className="italic text-xs opacity-50">N/A</span>}
                                     </td>
                                     <td className="px-6 py-4 text-center"><RoleBadge role={user.role} /></td>
                                     <td className="px-6 py-4 text-center">
