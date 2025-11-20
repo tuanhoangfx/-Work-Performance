@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { ClipboardListIcon, SpinnerIcon, CheckCircleIcon } from '@/components/Icons';
 import { useSettings } from '@/context/SettingsContext';
@@ -35,7 +34,7 @@ const ActivityTicker: React.FC<ActivityTickerProps> = ({ session, onEditTask, on
         // It fetches unfiltered tasks for the logged-in user for the selected status.
         const { data, error } = await supabase
             .from('tasks')
-            .select('*, assignee:user_id(*), creator:created_by(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
+            .select('*, assignee:user_id(*), creator:created_by(*), projects(*), task_attachments(*), task_time_logs(*), task_comments(*, profiles(*))')
             .or(`user_id.eq.${session.user.id},created_by.eq.${session.user.id}`)
             .eq('status', activePreview)
             .order('priority', { ascending: false });

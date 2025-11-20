@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useSettings } from '../../../context/SettingsContext';
@@ -55,17 +54,25 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({ isOpen, onClo
             return;
         }
 
-        const membersWithCounts = await Promise.all(
-            (memberData as (ProjectMember & { profiles: Profile})[]).map(async (member) => {
-                const { count, error: countError } = await supabase
-                    .from('tasks')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', member.user_id)
-                    .eq('project_id', project.id);
-                if (countError) console.error(`Failed to get task count for ${member.user_id}`, countError);
-                return { ...member, task_count: count || 0 };
-            })
-        );
+        // Optimize: Fetch all tasks for this project once
+        const { data: tasksData, error: tasksError } = await supabase
+            .from('tasks')
+            .select('user_id')
+            .eq('project_id', project.id);
+            
+        if (tasksError) {
+            console.error("Error fetching project tasks for counts:", tasksError);
+        }
+
+        const taskCounts: Record<string, number> = {};
+        tasksData?.forEach((t: any) => {
+            taskCounts[t.user_id] = (taskCounts[t.user_id] || 0) + 1;
+        });
+
+        const membersWithCounts = (memberData as (ProjectMember & { profiles: Profile})[]).map((member) => {
+            return { ...member, task_count: taskCounts[member.user_id] || 0 };
+        });
+
         setMembers(membersWithCounts);
         setOriginalMembers(membersWithCounts);
         setLoadingMembers(false);

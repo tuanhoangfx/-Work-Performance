@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { XIcon, SpinnerIcon, PlusIcon, TrashIcon, ProjectIcon } from '@/components/Icons';
@@ -85,21 +84,37 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
             return;
         }
 
-        // 3. For each membership, get task count and combine with project data
-        const detailsPromises = (memberData || []).map(async (membership) => {
+        // 3. Optimize: Fetch all relevant tasks once to count them
+        const memberProjectIds = (memberData || []).map(m => m.project_id);
+        const taskCounts: Record<number, number> = {};
+        
+        if (memberProjectIds.length > 0) {
+            const { data: tasksData, error: tasksError } = await supabase
+                .from('tasks')
+                .select('project_id')
+                .eq('user_id', employee.id)
+                .in('project_id', memberProjectIds);
+            
+            if (tasksError) {
+                console.error("Error fetching tasks for counts:", tasksError.message);
+            } else {
+                tasksData?.forEach((t: any) => {
+                    if(t.project_id) taskCounts[t.project_id] = (taskCounts[t.project_id] || 0) + 1;
+                });
+            }
+        }
+
+        const details = (memberData || []).map((membership) => {
             const projectInfo = allVisibleProjects.find(p => p.id === membership.project_id);
             if (!projectInfo) return null;
 
-            const { count, error: countError } = await supabase
-                .from('tasks')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', employee.id)
-                .eq('project_id', membership.project_id);
-            if (countError) console.error("Error fetching task count", countError.message);
+            return { 
+                ...projectInfo, 
+                joined_at: membership.created_at, 
+                task_count: taskCounts[membership.project_id] || 0 
+            };
+        }).filter(Boolean) as UserProjectDetails[];
 
-            return { ...projectInfo, joined_at: membership.created_at, task_count: count || 0 };
-        });
-        const details = (await Promise.all(detailsPromises)).filter(Boolean) as UserProjectDetails[];
         setUserProjectDetails(details);
         setUserProjectIds(new Set(details.map(d => d.id)));
         setProjectsLoading(false);
@@ -184,10 +199,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, onClose, 
             if (profileError) throw profileError;
             
             const { data: currentMemberships } = await supabase.from('project_members').select('project_id').eq('user_id', employee.id);
-            // FIX: Safely cast project_id to a number, as Supabase can return it as an unknown type from a partial select.
-            // FIX: Use a type assertion to cast `p.project_id` to `number`. This resolves the type error where Supabase infers it as `unknown`.
-            // FIX: Explicitly convert project_id to a number to handle potential 'unknown' type from Supabase.
-            const currentProjectIds = new Set(currentMemberships?.map(p => Number(p.project_id as any)) || []);
+
+            // Explicitly cast project_id to number to avoid type errors with Supabase partial selects
+            const currentProjectIds = new Set<number>(
+                (currentMemberships || []).map((p: any) => Number(p.project_id))
+            );
             
             const toAdd = [...userProjectIds].filter(id => !currentProjectIds.has(id));
             const toRemove = [...currentProjectIds].filter(id => !userProjectIds.has(id));

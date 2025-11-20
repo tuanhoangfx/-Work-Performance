@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Task, Profile } from '@/types';
 import { useSettings } from '@/context/SettingsContext';
@@ -141,7 +142,10 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete, onUpdateSta
         onDelete(task);
     };
     
-    const project = task.projects;
+    const projectData = task.projects;
+    // Safely handle if Supabase returns array or object
+    const project = Array.isArray(projectData) ? projectData[0] : projectData;
+    
     const projectName = project ? project.name : t.personalProject;
     const projectColor = project ? (project.color || PROJECT_COLORS[project.id % PROJECT_COLORS.length]) : '#6b7280'; // gray-500 for Personal
 
