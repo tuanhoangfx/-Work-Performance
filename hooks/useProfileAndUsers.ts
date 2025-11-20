@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -55,6 +56,8 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
     }, []);
 
     useEffect(() => {
+        let heartbeatInterval: number | undefined;
+
         if (session?.user) {
             if (!profile || profile.id !== session.user.id) {
                 getProfile(session.user);
@@ -62,12 +65,39 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
                 setLoadingProfile(false);
             }
             getAllUsers();
+
+            // Function to update the last active timestamp
+            const updateLastActive = async () => {
+                // Check network status to avoid errors if user is offline
+                if (!navigator.onLine) return;
+
+                const { error } = await supabase.from('profiles').update({
+                    last_sign_in_at: new Date().toISOString()
+                }).eq('id', session.user.id);
+                
+                if (error) {
+                    console.error("Failed to update last active timestamp:", error.message);
+                }
+            };
+
+            // 1. Update immediately on mount/session start
+            updateLastActive();
+
+            // 2. Set up a heartbeat to update every 5 minutes (300,000 ms)
+            // This keeps the "last active" status fresh without manual refresh
+            heartbeatInterval = window.setInterval(updateLastActive, 5 * 60 * 1000);
+
         } else {
             setProfile(null);
             setAllUsers([]); // Clear users on sign out
             setLoadingProfile(false);
             setAdminView('myTasks');
         }
+
+        // Cleanup interval on unmount or session change
+        return () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+        };
     }, [session, getProfile, getAllUsers, setAllUsers]);
 
      useEffect(() => {
