@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, Suspense, lazy, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { translations } from '@/translations';
@@ -20,12 +18,14 @@ import useIdleTimer from '@/hooks/useIdleTimer';
 import { useProjects } from '@/hooks/useProjects';
 import { useRealtime } from '@/hooks/useRealtime';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
-// FIX: Import the missing useLocalStorage hook.
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
-// Lazy load components
-const Header = lazy(() => import('@/components/Header'));
-const Footer = lazy(() => import('@/components/Footer'));
+// Direct imports for critical shell components to avoid layout shift/black screen
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { TaskBoardSkeleton } from '@/components/Skeleton';
+
+// Lazy load heavy content components
 const ScrollToTopButton = lazy(() => import('@/components/ScrollToTopButton'));
 const EmployeeDashboard = lazy(() => import('@/components/dashboard/employee/EmployeeDashboard'));
 const AdminTaskDashboard = lazy(() => import('@/components/dashboard/admin/AdminTaskDashboard'));
@@ -93,6 +93,15 @@ const DashboardManager: React.FC<{
     taskActions, timerActions, activeTimer, allUsers, setTaskCounts,
     userProjects, lastDataChange, getAllUsers, onEditUser, onEditProject
 }) => {
+    // Show skeleton if auth is loading or if we have a session but profile is still loading
+    if (authLoading || (session && loadingProfile)) {
+        return (
+             <div className="w-full h-full">
+                <TaskBoardSkeleton />
+            </div>
+        );
+    }
+
     if (!session) {
         return (
             <div className="flex flex-col justify-center items-center text-center flex-grow animate-fadeIn p-4">
@@ -121,10 +130,6 @@ const DashboardManager: React.FC<{
         );
     }
 
-    if (loadingProfile || authLoading) {
-        return <div className="text-center p-8">Loading user data...</div>;
-    }
-
     if (!profile) {
         return <div className="text-center p-8 text-xl text-red-500">Could not load user profile. Please try refreshing.</div>;
     }
@@ -135,28 +140,10 @@ const DashboardManager: React.FC<{
     return (
         <>
             <div className={isMyTasksVisible ? 'block' : 'hidden'}>
-                <EmployeeDashboard
-                    session={session}
-                    lastDataChange={lastDataChange}
-                    onEditTask={modals.task.open}
-                    onDeleteTask={taskActions.handleDeleteTask}
-                    onClearCancelledTasks={taskActions.handleClearCancelledTasks}
-                    onUpdateStatus={taskActions.handleUpdateStatus}
-                    onStartTimer={timerActions.handleStartTimer}
-                    onStopTimer={timerActions.handleStopTimer}
-                    activeTimer={activeTimer}
-                    allUsers={allUsers}
-                    setTaskCounts={isMyTasksVisible ? setTaskCounts : dummySetTaskCounts}
-                    userProjects={userProjects}
-                />
-            </div>
-
-            {(profile.role === 'admin' || profile.role === 'manager') && (
-                <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
-                    <AdminTaskDashboard
-                        profile={profile}
+                <Suspense fallback={<TaskBoardSkeleton />}>
+                    <EmployeeDashboard
+                        session={session}
                         lastDataChange={lastDataChange}
-                        allUsers={allUsers}
                         onEditTask={modals.task.open}
                         onDeleteTask={taskActions.handleDeleteTask}
                         onClearCancelledTasks={taskActions.handleClearCancelledTasks}
@@ -164,21 +151,45 @@ const DashboardManager: React.FC<{
                         onStartTimer={timerActions.handleStartTimer}
                         onStopTimer={timerActions.handleStopTimer}
                         activeTimer={activeTimer}
-                        setTaskCounts={adminView === 'taskDashboard' ? setTaskCounts : dummySetTaskCounts}
+                        allUsers={allUsers}
+                        setTaskCounts={isMyTasksVisible ? setTaskCounts : dummySetTaskCounts}
+                        userProjects={userProjects}
                     />
+                </Suspense>
+            </div>
+
+            {(profile.role === 'admin' || profile.role === 'manager') && (
+                <div className={adminView === 'taskDashboard' ? 'block' : 'hidden'}>
+                    <Suspense fallback={<TaskBoardSkeleton />}>
+                        <AdminTaskDashboard
+                            profile={profile}
+                            lastDataChange={lastDataChange}
+                            allUsers={allUsers}
+                            onEditTask={modals.task.open}
+                            onDeleteTask={taskActions.handleDeleteTask}
+                            onClearCancelledTasks={taskActions.handleClearCancelledTasks}
+                            onUpdateStatus={taskActions.handleUpdateStatus}
+                            onStartTimer={timerActions.handleStartTimer}
+                            onStopTimer={timerActions.handleStopTimer}
+                            activeTimer={activeTimer}
+                            setTaskCounts={adminView === 'taskDashboard' ? setTaskCounts : dummySetTaskCounts}
+                        />
+                    </Suspense>
                 </div>
             )}
             
             {(profile.role === 'admin' || profile.role === 'manager') && (
                 <div className={adminView === 'management' ? 'block' : 'hidden'}>
-                    <ManagementDashboard
-                        allUsers={allUsers}
-                        onUsersChange={getAllUsers}
-                        currentUserProfile={profile}
-                        onEditUser={onEditUser}
-                        onEditProject={onEditProject}
-                        lastDataChange={lastDataChange}
-                    />
+                    <Suspense fallback={<div className="flex justify-center p-8"><SpinnerIcon className="animate-spin text-[var(--accent-color)]" size={40} /></div>}>
+                        <ManagementDashboard
+                            allUsers={allUsers}
+                            onUsersChange={getAllUsers}
+                            currentUserProfile={profile}
+                            onEditUser={onEditUser}
+                            onEditProject={onEditProject}
+                            lastDataChange={lastDataChange}
+                        />
+                    </Suspense>
                 </div>
             )}
         </>
@@ -272,8 +283,12 @@ const AppContent: React.FC = () => {
   }, [modals, t, profile, setAdminView, addToast]);
 
   return (
-      <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans flex flex-col">
-        <ToastContainer />
+      <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans flex flex-col transition-colors duration-300">
+        <Suspense fallback={null}>
+            <ToastContainer />
+        </Suspense>
+        
+        {/* Shell Components (Header) are rendered immediately */}
         <Header 
           session={session}
           profile={profile}
@@ -292,32 +307,38 @@ const AppContent: React.FC = () => {
           taskCounts={taskCounts}
         />
 
-        <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
-          {isSupabaseConfigured ? <DashboardManager 
-            session={session}
-            loadingProfile={loadingProfile}
-            authLoading={authLoading}
-            profile={profile}
-            t={t}
-            adminView={adminView}
-            modals={modals}
-            taskActions={taskActions}
-            timerActions={timerActions}
-            activeTimer={activeTimer}
-            allUsers={allUsers}
-            setTaskCounts={setTaskCounts}
-            userProjects={userProjects}
-            lastDataChange={lastDataChange}
-            getAllUsers={getAllUsers}
-            onEditUser={modals.editEmployee.open}
-            onEditProject={modals.editProject.open}
-          /> : <SupabaseNotConfigured />}
+        <main className="container mx-auto px-4 py-8 flex-grow flex flex-col relative">
+          {isSupabaseConfigured ? (
+             <DashboardManager 
+                session={session}
+                loadingProfile={loadingProfile}
+                authLoading={authLoading}
+                profile={profile}
+                t={t}
+                adminView={adminView}
+                modals={modals}
+                taskActions={taskActions}
+                timerActions={timerActions}
+                activeTimer={activeTimer}
+                allUsers={allUsers}
+                setTaskCounts={setTaskCounts}
+                userProjects={userProjects}
+                lastDataChange={lastDataChange}
+                getAllUsers={getAllUsers}
+                onEditUser={modals.editEmployee.open}
+                onEditProject={modals.editProject.open}
+              />
+          ) : (
+            <SupabaseNotConfigured />
+          )}
         </main>
         
         <Footer />
 
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-            <ScrollToTopButton />
+            <Suspense fallback={null}>
+                <ScrollToTopButton />
+            </Suspense>
             <button
               type="button"
               onClick={modals.userGuide.open}
@@ -329,19 +350,21 @@ const AppContent: React.FC = () => {
             </button>
         </div>
         
-        <AppModals
-            session={session}
-            profile={profile}
-            allUsers={allUsers}
-            userProjects={userProjects}
-            modals={modals}
-            taskActions={taskActions}
-            getProfile={getProfile}
-            getAllUsers={getAllUsers}
-            setUnreadCount={setUnreadCount}
-            handleNotificationClick={handleNotificationClick}
-            handleSaveProject={handleSaveProject}
-        />
+        <Suspense fallback={null}>
+            <AppModals
+                session={session}
+                profile={profile}
+                allUsers={allUsers}
+                userProjects={userProjects}
+                modals={modals}
+                taskActions={taskActions}
+                getProfile={getProfile}
+                getAllUsers={getAllUsers}
+                setUnreadCount={setUnreadCount}
+                handleNotificationClick={handleNotificationClick}
+                handleSaveProject={handleSaveProject}
+            />
+        </Suspense>
       </div>
   );
 }

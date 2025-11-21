@@ -6,6 +6,8 @@ import type { Profile } from '../types';
 import { AdminView, DataChange } from '../App';
 import { useLocalStorage } from './useLocalStorage';
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const useProfileAndUsers = (session: Session | null, lastDataChange: DataChange | null) => {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [allUsers, setAllUsers] = useLocalStorage<Profile[]>('all_users', []);
@@ -13,51 +15,79 @@ export const useProfileAndUsers = (session: Session | null, lastDataChange: Data
     const [adminView, setAdminView] = useState<AdminView>('myTasks');
 
     const getAllUsers = useCallback(async () => {
-        try {
-            // Fetch fresh data in the background
-            const { data, error } = await supabase.from('profiles').select('*').order('full_name');
-            if (error) throw error;
-            // Update state and localStorage with fresh data
-            if (data) {
-                setAllUsers(data);
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
+
+        while (attempts < maxAttempts && !success) {
+            try {
+                // Fetch fresh data in the background
+                const { data, error } = await supabase.from('profiles').select('*').order('full_name');
+                if (error) throw error;
+                // Update state and localStorage with fresh data
+                if (data) {
+                    setAllUsers(data);
+                }
+                success = true;
+            } catch (error: any) {
+                attempts++;
+                const isNetworkError = error.message === 'Failed to fetch' || error.message.includes('NetworkError');
+                
+                if (attempts >= maxAttempts || !isNetworkError) {
+                    console.error('Error fetching users:', error.message);
+                } else {
+                    await wait(500 * Math.pow(2, attempts - 1));
+                }
             }
-        } catch (error: any) {
-            console.error('Error fetching users:', error.message);
         }
     }, [setAllUsers]);
 
     const getProfile = useCallback(async (user: Session['user']) => {
         if (!user) return;
         setLoadingProfile(true);
-        try {
-            const { data, error } = await supabase.from('profiles').select(`*`).eq('id', user.id).single();
+        
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
 
-            if (error && error.code !== 'PGRST116') {
-                throw error;
+        while(attempts < maxAttempts && !success) {
+            try {
+                const { data, error } = await supabase.from('profiles').select(`*`).eq('id', user.id).single();
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                if (data) {
+                    setProfile(data);
+                } else {
+                    // Insert new profile with email
+                    const { data: newProfile, error: insertError } = await supabase
+                        .from('profiles')
+                        .insert({ 
+                            id: user.id, 
+                            full_name: user.user_metadata?.full_name || user.email,
+                            email: user.email
+                        })
+                        .select().single();
+
+                    if (insertError) throw insertError;
+                    if (newProfile) setProfile(newProfile);
+                }
+                success = true;
+            } catch (error: any) {
+                attempts++;
+                const isNetworkError = error.message === 'Failed to fetch' || error.message.includes('NetworkError');
+                
+                if (attempts >= maxAttempts || !isNetworkError) {
+                    console.error('Error fetching or creating profile:', error.message);
+                    setProfile(null);
+                } else {
+                    await wait(500 * Math.pow(2, attempts - 1));
+                }
             }
-
-            if (data) {
-                setProfile(data);
-            } else {
-                // Insert new profile with email
-                const { data: newProfile, error: insertError } = await supabase
-                    .from('profiles')
-                    .insert({ 
-                        id: user.id, 
-                        full_name: user.user_metadata?.full_name || user.email,
-                        email: user.email
-                    })
-                    .select().single();
-
-                if (insertError) throw insertError;
-                if (newProfile) setProfile(newProfile);
-            }
-        } catch (error: any) {
-            console.error('Error fetching or creating profile:', error.message);
-            setProfile(null);
-        } finally {
-            setLoadingProfile(false);
         }
+        setLoadingProfile(false);
     }, []);
 
     useEffect(() => {

@@ -2,11 +2,17 @@
 <html lang="en" class="theme-sky">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNjQgNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJsb2dvLWdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMGVhNWU5IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzRmNDZlNSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBmaWxsPSJ1cmwoI2xvZ28tZ3JhZGllbnQpIiBkPSJNNDMuMzQsMjAuMDhDMzYuMzgsMTUuNCwyNS44LDE4LjQsMjEuNiwyNi4zMmMtNC4zMiw4LjEyLDEuMjEsMTguNDEsOC4zLDIzLjI4LDcuMzgsNC42NCwxNy43MSwxLjQsMjEuODQsLTYuNiwyLjgzLTUuNDgsMi41My0xMS44LS44Mi0xNi45Mi0yLjMtMy41Mi01Ljc0LTYuMTktOS41OC03LjkyWk0zNi43LDQxLjQ4Yy00LjQ4LDIuOC0xMC4yNywxLjA3LTEyLjg0LTMuNDFzLTEuMDktMTAuMzcsMy40LTEzLjE5LDEwLjI4LTEuMDgsMTIuODUsMy40UzQxLjE5LDM4LjY3LDM2LjcsNDEuNDhabTEyLjE5LTEyLjRjLTQuNDgtMi44MS01LjI2LTguNjYtMi42OS0xMy4xNHM4LjEyLTYsMTIuNi0zLjE4LDUuMjYsOC42NiwyLjY5LDEzLjE0UzUzLjM4LDMxLjg4LDQ4Ljg5LDI5LjA4WiIgLz48L3N2Zz4=" />
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNjQgNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJsb2dvLWdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMGVhNWU5IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzRmNDZlNSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBmaWxsPSJ1cmwoI2xvZ28tZ3JhZGllbnQpIiBkPSJNNDMuMzQsMjAuMDhDMzYuMzgsMTUuNCwyNS44LDE4LjQsMjEuNiwyNi4zMmMtNC4zMiw4LjEyLDEuMjEsMTguNDEsOC4zLDIzLjI4LDcuMzgsNC42NCwxNy43MSwxLjQsMjEuODQsLTYuNiwyLjgzLTUuNDgsMi41My0xMS44LS44Mi0xNi45Mi0yLjMtMy41Mi01Ljc0LTYuNi05LjU4LTcuOTJaTTM2LjcsNDEuNDhjLTQuNDgsMi44LTEwLjI3LDEuMDctMTIuODQtMy40MXMtMS4wOS0xMC4zNywzLjQtMTMuMTksMTAuMjgtMS4wOCwxMi44NSwzLjRTNDEuMTksMzguNjcsMzYuNyw0MS40OFptMTIuMTktMTIuNGMtNC40OC0yLjgxLTUuMjYtOC42Ni0yLjY5LTEzLjE0czguMTItNiwxMi42LTMuMTgsNS4yNiw4LjY2LDIuNjksMTMuMTRTNTMuMzgsMzEuODgsNDguODksMjkuMDhaIiAvPjwvc3ZnPg==" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Infi Project Performance</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      /* Critical styles for initial load to prevent white flash */
+      body {
+        background-color: #111827; /* gray-900 */
+        color: #e5e7eb; /* gray-200 */
+        margin: 0;
+      }
       html.theme-sky {
         --gradient-from: #0ea5e9; /* sky-500 */
         --gradient-to: #4f46e5; /* indigo-600 */
@@ -76,13 +82,14 @@
         position: fixed;
         top: 0;
         left: 0;
-        background-color: transparent;
+        background-color: #111827; /* Match dark mode bg */
+        z-index: 9999;
       }
       #root .suspense-spinner {
         width: 48px;
         height: 48px;
-        border: 5px solid #FFF;
-        border-bottom-color: var(--accent-color);
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-left-color: var(--accent-color, #0ea5e9);
         border-radius: 50%;
         display: inline-block;
         box-sizing: border-box;

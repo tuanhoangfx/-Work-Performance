@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/context/SettingsContext';
-import { XIcon, SpinnerIcon, SearchIcon, CheckIcon } from '@/components/Icons';
+import { SpinnerIcon, SearchIcon } from '@/components/Icons';
 import type { ActivityLog } from '@/types';
 import { formatAbsoluteDateTime } from '@/lib/taskUtils';
 import Avatar from '@/components/common/Avatar';
@@ -10,6 +10,7 @@ import VirtualItem from '@/components/common/VirtualItem';
 import { ActivityLogItemSkeleton } from '@/components/Skeleton';
 import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
 import CopyIdButton from '@/components/common/CopyIdButton';
+import GenericListModal from '@/components/GenericListModal';
 
 interface ActivityLogModalProps {
   isOpen: boolean;
@@ -107,7 +108,6 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose, on
     }), [t]);
 
     const actionOptions: MultiSelectOption[] = useMemo(() => 
-        // FIX: Cast to string[] to resolve TypeScript error where `action` is inferred as `unknown`.
         (Array.from(new Set(logs.map(log => log.action))) as string[])
         .map(action => ({ id: action, label: actionTypes[action] || action }))
     , [logs, actionTypes]);
@@ -142,107 +142,86 @@ const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ isOpen, onClose, on
         return `${selectedCount} Actions`;
     };
 
-    if (!isOpen) return null;
-
-    return (
-        <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex justify-center overflow-y-auto p-4 animate-fadeIn"
-            onClick={onClose}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="activity-log-title"
-        >
-            <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp my-auto"
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                    <h2 id="activity-log-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">{t.activityLog}</h2>
-                    <button 
-                        onClick={onClose} 
-                        className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        aria-label={t.close}
-                    >
-                        <XIcon size={24} />
-                    </button>
-                </div>
-
-                <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="relative sm:col-span-1">
-                            <input
-                                type="text"
-                                placeholder={t.log_searchPlaceholder}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            />
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <SearchIcon size={16} className="text-gray-400" />
-                            </div>
-                        </div>
-                        <MultiSelectDropdown
-                            options={userOptions}
-                            selectedIds={filterUsers}
-                            onChange={setFilterUsers}
-                            buttonLabel={getUserLabel}
-                            buttonIcon={<></>}
-                            searchPlaceholder={t.searchUsers}
-                            allLabel={t.log_allUsers}
-                            widthClass="w-full"
-                        />
-                        <MultiSelectDropdown
-                            options={actionOptions}
-                            selectedIds={filterActions}
-                            onChange={setFilterActions}
-                            buttonLabel={getActionLabel}
-                            buttonIcon={<></>}
-                            searchPlaceholder="Search actions..."
-                            allLabel={t.log_allActions}
-                            widthClass="w-full"
-                        />
-                    </div>
-                </div>
-
-
-                <div ref={scrollContainerRef} className="overflow-y-auto flex-grow h-[60vh]">
-                    {loading ? (
-                         <div className="flex justify-center items-center h-full">
-                            <SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" />
-                        </div>
-                    ) : filteredLogs.length === 0 ? (
-                        <p className="text-center text-gray-500 dark:text-gray-400 py-10">{t.noActivity}</p>
-                    ) : (
-                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {filteredLogs.map(log => {
-                                const message = formatLogMessage(log);
-                                const isClickable = !!log.task_id;
-                                
-                                return (
-                                <VirtualItem key={log.id} rootRef={scrollContainerRef} placeholder={<ActivityLogItemSkeleton />}>
-                                    <li 
-                                        className={`flex items-start gap-3 p-3 transition-colors ${isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
-                                        onClick={() => isClickable && onLogClick(log)}
-                                    >
-                                        <div className="flex-shrink-0 mt-0.5">
-                                            {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={32} />}
-                                        </div>
-                                        <div className="flex-grow">
-                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
-                                               <span>{message}</span>
-                                                {log.task_id && <CopyIdButton id={log.task_id} isInline />}
-                                            </p>
-                                            <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(log.created_at, language, timezone)}</time>
-                                        </div>
-                                    </li>
-                                </VirtualItem>
-                                );
-                            })}
-                        </ul>
-                    )}
+    const filterContent = (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="relative sm:col-span-1">
+                <input
+                    type="text"
+                    placeholder={t.log_searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SearchIcon size={16} className="text-gray-400" />
                 </div>
             </div>
+            <MultiSelectDropdown
+                options={userOptions}
+                selectedIds={filterUsers}
+                onChange={setFilterUsers}
+                buttonLabel={getUserLabel}
+                buttonIcon={<></>}
+                searchPlaceholder={t.searchUsers}
+                allLabel={t.log_allUsers}
+                widthClass="w-full"
+            />
+            <MultiSelectDropdown
+                options={actionOptions}
+                selectedIds={filterActions}
+                onChange={setFilterActions}
+                buttonLabel={getActionLabel}
+                buttonIcon={<></>}
+                searchPlaceholder="Search actions..."
+                allLabel={t.log_allActions}
+                widthClass="w-full"
+            />
         </div>
+    );
+
+    return (
+        <GenericListModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t.activityLog}
+            filterContent={filterContent}
+            scrollRef={scrollContainerRef}
+        >
+            {loading ? (
+                <div className="flex justify-center items-center h-40">
+                    <SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" />
+                </div>
+            ) : filteredLogs.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-10">{t.noActivity}</p>
+            ) : (
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredLogs.map(log => {
+                        const message = formatLogMessage(log);
+                        const isClickable = !!log.task_id;
+                        
+                        return (
+                        <VirtualItem key={log.id} rootRef={scrollContainerRef} placeholder={<ActivityLogItemSkeleton />}>
+                            <li 
+                                className={`flex items-start gap-3 p-3 transition-colors ${isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50' : ''}`}
+                                onClick={() => isClickable && onLogClick(log)}
+                            >
+                                <div className="flex-shrink-0 mt-0.5">
+                                    {log.profiles && <Avatar user={log.profiles} title={log.profiles.full_name || ''} size={32} />}
+                                </div>
+                                <div className="flex-grow">
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
+                                        <span>{message}</span>
+                                        {log.task_id && <CopyIdButton id={log.task_id} isInline />}
+                                    </p>
+                                    <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(log.created_at, language, timezone)}</time>
+                                </div>
+                            </li>
+                        </VirtualItem>
+                        );
+                    })}
+                </ul>
+            )}
+        </GenericListModal>
     );
 };
 

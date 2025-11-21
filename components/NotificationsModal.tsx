@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSettings } from '@/context/SettingsContext';
-import { XIcon, SpinnerIcon, BellIcon, SearchIcon, CheckIcon } from '@/components/Icons';
+import { SpinnerIcon, BellIcon, SearchIcon } from '@/components/Icons';
 import type { Notification } from '@/types';
 import { formatAbsoluteDateTime } from '@/lib/taskUtils';
 import Avatar from '@/components/common/Avatar';
 import MultiSelectDropdown, { MultiSelectOption } from '@/components/dashboard/admin/MultiSelectEmployeeDropdown';
 import CopyIdButton from '@/components/common/CopyIdButton';
+import GenericListModal from '@/components/GenericListModal';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -90,7 +92,6 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
 
         if (error) {
             console.error("Error marking all as read:", error);
-            // Optionally revert UI change on error
         }
     };
 
@@ -114,7 +115,6 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
             
             if (error) {
                 console.error("Failed to mark notification as read:", error);
-                // Revert UI change on error
                  setNotifications(currentNotifications =>
                     currentNotifications.map(n =>
                         n.id === notification.id ? { ...n, is_read: false } : n
@@ -142,7 +142,6 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
             new_project_created: t.notif_type_new_project,
             new_user_registered: t.notif_type_new_user,
         };
-        // FIX: Cast to string[] to resolve TypeScript error where `type` is inferred as `unknown`.
         return (Array.from(new Set(notifications.map(n => n.type))) as string[])
             .map(type => ({ id: type, label: typeLabels[type] || type }));
     }, [notifications, t]);
@@ -172,141 +171,120 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose
 
     const hasUnread = notifications.some(n => !n.is_read);
 
-    if (!isOpen) return null;
+    const filterContent = (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="relative sm:col-span-1">
+                <input
+                    type="text"
+                    placeholder={t.notif_searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SearchIcon size={16} className="text-gray-400" />
+                </div>
+            </div>
+            <MultiSelectDropdown 
+                options={actorOptions} 
+                selectedIds={filterActors} 
+                onChange={setFilterActors} 
+                buttonLabel={(s, t) => s === 0 || s === t ? 'All Actors' : `${s} Actors`}
+                buttonIcon={<></>}
+                allLabel={t.notif_allActors}
+                searchPlaceholder={t.searchUsers}
+                widthClass="w-full"
+                />
+                <MultiSelectDropdown 
+                options={typeOptions} 
+                selectedIds={filterTypes} 
+                onChange={setFilterTypes} 
+                buttonLabel={(s) => s === 0 ? 'All Types' : `${s} Types`}
+                buttonIcon={<></>}
+                allLabel={t.notif_allTypes}
+                searchPlaceholder="Search types..."
+                widthClass="w-full"
+                />
+                <MultiSelectDropdown 
+                options={statusOptions} 
+                selectedIds={filterReadStatuses} 
+                onChange={setFilterReadStatuses} 
+                buttonLabel={(s) => s === 0 ? 'All Statuses' : `${s} Statuses`}
+                buttonIcon={<></>}
+                allLabel={t.notif_allStatuses}
+                searchPlaceholder="Search status..."
+                widthClass="w-full"
+                />
+        </div>
+    );
+
+    const footerContent = notifications.length > 0 ? (
+        <button 
+            onClick={handleMarkAllAsRead} 
+            disabled={!hasUnread}
+            className="text-xs font-semibold text-[var(--accent-color)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            {t.mark_all_as_read}
+        </button>
+    ) : null;
 
     return (
-        <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex justify-center overflow-y-auto p-4 animate-fadeIn"
-            onClick={onClose}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="notifications-title"
+        <GenericListModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t.notifications}
+            filterContent={filterContent}
+            footerContent={footerContent}
         >
-            <div 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out animate-fadeInUp my-auto"
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                    <h2 id="notifications-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">{t.notifications}</h2>
-                    <button 
-                        onClick={onClose} 
-                        className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                        aria-label={t.close}
-                    >
-                        <XIcon size={24} />
-                    </button>
+            {loading ? (
+                    <div className="flex justify-center items-center h-40">
+                    <SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" />
                 </div>
-                
-                <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                        <div className="relative sm:col-span-1">
-                            <input
-                                type="text"
-                                placeholder={t.notif_searchPlaceholder}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] text-sm"
-                            />
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <SearchIcon size={16} className="text-gray-400" />
-                            </div>
-                        </div>
-                        <MultiSelectDropdown 
-                            options={actorOptions} 
-                            selectedIds={filterActors} 
-                            onChange={setFilterActors} 
-                            buttonLabel={(s, t) => s === 0 || s === t ? 'All Actors' : `${s} Actors`}
-                            buttonIcon={<></>}
-                            allLabel={t.notif_allActors}
-                            searchPlaceholder={t.searchUsers}
-                            widthClass="w-full"
-                         />
-                         <MultiSelectDropdown 
-                            options={typeOptions} 
-                            selectedIds={filterTypes} 
-                            onChange={setFilterTypes} 
-                            buttonLabel={(s) => s === 0 ? 'All Types' : `${s} Types`}
-                            buttonIcon={<></>}
-                            allLabel={t.notif_allTypes}
-                            searchPlaceholder="Search types..."
-                            widthClass="w-full"
-                         />
-                         <MultiSelectDropdown 
-                            options={statusOptions} 
-                            selectedIds={filterReadStatuses} 
-                            onChange={setFilterReadStatuses} 
-                            buttonLabel={(s) => s === 0 ? 'All Statuses' : `${s} Statuses`}
-                            buttonIcon={<></>}
-                            allLabel={t.notif_allStatuses}
-                            searchPlaceholder="Search status..."
-                            widthClass="w-full"
-                         />
-                    </div>
+            ) : filteredNotifications.length === 0 ? (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-10 flex flex-col items-center h-full justify-center">
+                    <BellIcon size={40} className="mb-4 text-gray-400 dark:text-gray-500" />
+                    <p>{notifications.length === 0 ? t.notifications_empty : "No notifications match your filters."}</p>
                 </div>
+            ) : (
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredNotifications.map(notification => {
+                        const message = formatNotificationMessage(notification);
+                        const parts = message.split(/<strong>(.*?)<\/strong>/g);
+                        const isStrongFirst = message.startsWith('<strong>');
 
-                <div className="overflow-y-auto p-2 flex-grow">
-                    {loading ? (
-                         <div className="flex justify-center items-center h-40">
-                            <SpinnerIcon size={32} className="animate-spin text-[var(--accent-color)]" />
-                        </div>
-                    ) : filteredNotifications.length === 0 ? (
-                        <div className="text-center text-gray-500 dark:text-gray-400 py-10 flex flex-col items-center h-full justify-center">
-                            <BellIcon size={40} className="mb-4 text-gray-400 dark:text-gray-500" />
-                            <p>{notifications.length === 0 ? t.notifications_empty : "No notifications match your filters."}</p>
-                        </div>
-                    ) : (
-                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {filteredNotifications.map(notification => {
-                                const message = formatNotificationMessage(notification);
-                                const parts = message.split(/<strong>(.*?)<\/strong>/g);
-                                const isStrongFirst = message.startsWith('<strong>');
+                        const content = parts.map((part, index) => {
+                            const isStrongPart = (isStrongFirst && index % 2 === 1) || (!isStrongFirst && index % 2 === 1);
+                            if (isStrongPart) {
+                                return <strong key={index} className="font-semibold text-gray-900 dark:text-gray-100">{part}</strong>;
+                            }
+                            return <span key={index}>{part}</span>;
+                        });
 
-                                const content = parts.map((part, index) => {
-                                    const isStrongPart = (isStrongFirst && index % 2 === 1) || (!isStrongFirst && index % 2 === 1);
-                                    if (isStrongPart) {
-                                        return <strong key={index} className="font-semibold text-gray-900 dark:text-gray-100">{part}</strong>;
-                                    }
-                                    return <span key={index}>{part}</span>;
-                                });
-
-                                return (
-                                <li 
-                                    key={notification.id} 
-                                    className={`p-3 flex items-start gap-3 transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 ${!notification.is_read ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}
-                                    onClick={() => handleNotificationClick(notification)}
-                                >
-                                    <div className="flex-shrink-0 mt-0.5">
-                                        {notification.profiles && <Avatar user={notification.profiles} title={notification.profiles.full_name || ''} size={32} />}
-                                    </div>
-                                    <div className="flex-grow">
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
-                                           {content}
-                                           {notification.data.task_id && <CopyIdButton id={notification.data.task_id} isInline />}
-                                        </p>
-                                        <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(notification.created_at, language, timezone)}</time>
-                                    </div>
-                                    {!notification.is_read && (
-                                        <div className="w-2.5 h-2.5 bg-sky-500 rounded-full flex-shrink-0 mt-1" title="Unread"></div>
-                                    )}
-                                </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
-                 {notifications.length > 0 && (
-                    <div className="p-2 border-t border-gray-200 dark:border-gray-700 text-right flex-shrink-0">
-                        <button 
-                            onClick={handleMarkAllAsRead} 
-                            disabled={!hasUnread}
-                            className="text-xs font-semibold text-[var(--accent-color)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                        return (
+                        <li 
+                            key={notification.id} 
+                            className={`p-3 flex items-start gap-3 transition-colors cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 ${!notification.is_read ? 'bg-sky-50 dark:bg-sky-900/20' : ''}`}
+                            onClick={() => handleNotificationClick(notification)}
                         >
-                            {t.mark_all_as_read}
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
+                            <div className="flex-shrink-0 mt-0.5">
+                                {notification.profiles && <Avatar user={notification.profiles} title={notification.profiles.full_name || ''} size={32} />}
+                            </div>
+                            <div className="flex-grow">
+                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
+                                    {content}
+                                    {notification.data.task_id && <CopyIdButton id={notification.data.task_id} isInline />}
+                                </p>
+                                <time className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatAbsoluteDateTime(notification.created_at, language, timezone)}</time>
+                            </div>
+                            {!notification.is_read && (
+                                <div className="w-2.5 h-2.5 bg-sky-500 rounded-full flex-shrink-0 mt-1" title="Unread"></div>
+                            )}
+                        </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </GenericListModal>
     );
 };
 

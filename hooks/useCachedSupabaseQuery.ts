@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import type { DataChange } from '../App';
@@ -9,6 +10,8 @@ interface CacheEntry<T> {
 
 // Cache duration in milliseconds (e.g., 5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function useCachedSupabaseQuery<T>({
   cacheKey,
@@ -32,22 +35,38 @@ export function useCachedSupabaseQuery<T>({
     }
     setError(null);
 
-    try {
-      const { data: freshData, error: queryError } = await query();
-      if (queryError) throw queryError;
-      
-      setData(freshData as T);
-      setCachedData({ data: freshData as T, timestamp: Date.now() });
-    } catch (err: any) {
-      console.error(`Error fetching data for ${cacheKey}:`, err.message);
-      setError(err);
-      if (!cachedData?.data) {
-        setData(null);
+    let attempts = 0;
+    const maxAttempts = 3;
+    let success = false;
+
+    while (attempts < maxAttempts && !success) {
+      try {
+        const { data: freshData, error: queryError } = await query();
+        if (queryError) throw queryError;
+        
+        setData(freshData as T);
+        setCachedData({ data: freshData as T, timestamp: Date.now() });
+        success = true;
+      } catch (err: any) {
+        attempts++;
+        // Only retry on network errors (fetch failures) or specifically explicitly transient errors
+        const isNetworkError = err.message === 'Failed to fetch' || err.message.includes('NetworkError');
+        
+        if (attempts >= maxAttempts || !isNetworkError) {
+          console.error(`Error fetching data for ${cacheKey}:`, err.message);
+          setError(err);
+          if (!cachedData?.data) {
+            setData(null);
+          }
+        } else {
+          // Exponential backoff: 500, 1000, 2000 ms
+          await wait(500 * Math.pow(2, attempts - 1));
+        }
       }
-    } finally {
-      if (!isBackgroundRefresh) {
-        setLoading(false);
-      }
+    }
+
+    if (!isBackgroundRefresh) {
+      setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey, ...dependencies]);
